@@ -15,32 +15,17 @@ package inference
 
 import (
 	"context"
-	"fmt"
-	"math"
-	"strconv"
 	"time"
 
-	"github.com/samber/lo"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kaitov1alpha1 "github.com/kaito-project/kaito/api/v1alpha1"
 	"github.com/kaito-project/kaito/api/v1beta1"
-	"github.com/kaito-project/kaito/pkg/featuregates"
 	pkgmodel "github.com/kaito-project/kaito/pkg/model"
 	"github.com/kaito-project/kaito/pkg/sku"
-	"github.com/kaito-project/kaito/pkg/utils"
 	"github.com/kaito-project/kaito/pkg/utils/consts"
 	"github.com/kaito-project/kaito/pkg/utils/generator"
-	"github.com/kaito-project/kaito/pkg/utils/resources"
-	"github.com/kaito-project/kaito/pkg/workspace/manifests"
-	metadata "github.com/kaito-project/kaito/presets/workspace/models"
 )
 
 const (
@@ -83,45 +68,16 @@ var (
 )
 
 func defaultTolerations(ws *v1beta1.Workspace) []corev1.Toleration {
-	tolerations := []corev1.Toleration{
-		{
-			Effect:   corev1.TaintEffectNoSchedule,
-			Operator: corev1.TolerationOpExists,
-			Key:      resources.CapacityNvidiaGPU,
-		},
-		{
-			Effect:   corev1.TaintEffectNoSchedule,
-			Value:    consts.GPUString,
-			Key:      consts.SKUString,
-			Operator: corev1.TolerationOpEqual,
-		},
-	}
-
-	if utils.IsAzureCloudProvider() {
-		tolerations = append(tolerations, corev1.Toleration{
-			Effect:   corev1.TaintEffectNoSchedule,
-			Key:      consts.SpotInstanceKey,
-			Operator: corev1.TolerationOpEqual,
-			Value:    consts.SpotInstanceValue,
-		})
-	}
-
-	return tolerations
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func GetInferenceImageInfo(ctx context.Context, workspaceObj *v1beta1.Workspace) []corev1.LocalObjectReference {
-	imagePullSecretRefs := []corev1.LocalObjectReference{}
-	// Check if the workspace preset's access mode is private
-	if len(workspaceObj.Inference.Adapters) > 0 {
-		for _, adapter := range workspaceObj.Inference.Adapters {
-			for _, secretName := range adapter.Source.ImagePullSecrets {
-				imagePullSecretRefs = append(imagePullSecretRefs, corev1.LocalObjectReference{Name: secretName})
-			}
-		}
-	}
-
-	return imagePullSecretRefs
+	_ = "STUB: not implemented"
+	return nil
 }
+
+// Check if the workspace preset's access mode is private
 
 // GenerateModelFileCacheVolume generates a volume for caching model files.
 // These files would be stored in the local pv and its lifetime is tied to the pod.
@@ -130,109 +86,38 @@ func GetInferenceImageInfo(ctx context.Context, workspaceObj *v1beta1.Workspace)
 // notes: no capacity check here because NVMe is typically a TiB level storage,
 // which is sufficient for almost all models. check it if this assumption is not true.
 func GenerateModelWeightsCacheVolume(ctx context.Context, workspaceObj *v1beta1.Workspace, model pkgmodel.Model) corev1.PersistentVolumeClaim {
-	return corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "model-weights-volume",
-			Labels: map[string]string{
-				v1beta1.LabelWorkspaceName: workspaceObj.Name,
-			},
-		},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-			StorageClassName: &consts.LocalNVMeStorageClass,
-			Resources: corev1.VolumeResourceRequirements{
-				Requests: corev1.ResourceList{
-					// place model files in this volume
-					corev1.ResourceStorage: resource.MustParse(model.GetInferenceParameters().DiskStorageRequirement),
-				},
-			},
-		},
-	}
+	_ = "STUB: not implemented"
+	return *new(corev1.PersistentVolumeClaim)
 }
+
+// place model files in this volume
 
 func GeneratePresetInference(ctx context.Context, workspaceObj *v1beta1.Workspace, revisionNum string,
 	model pkgmodel.Model, kubeClient client.Client) (client.Object, error) {
-
-	gctx := &generator.WorkspaceGeneratorContext{
-		Ctx:        ctx,
-		KubeClient: kubeClient,
-		Workspace:  workspaceObj,
-		Model:      model,
-	}
-
-	gpuConfig, err := getGPUConfig(gctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get GPU config: %w", err)
-	}
-
-	// Set the target node count for the inference workload
-	numNodes := int(workspaceObj.Status.TargetNodeCount)
-
-	podOpts := []generator.TypedManifestModifier[generator.WorkspaceGeneratorContext, corev1.PodSpec]{
-		GenerateInferencePodSpec(gpuConfig, numNodes),
-		SetModelDownloadInfo,
-		SetAdapterPuller,
-	}
-
-	// Use StatefulSet for all use cases to ensure consistent pod identity and storage management
-	// For multi-node distributed inference with vLLM, we need StatefulSet to ensure pods are
-	// created with individual identities (their ordinal indexes) -
-	// https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#pod-identity
-	distributed := shouldUseDistributedInference(gctx, numNodes)
-	if distributed {
-		podOpts = append(podOpts, SetDistributedInferenceProbe)
-	}
-	if v1beta1.ShouldRunBenchmark(workspaceObj) {
-		podOpts = append(podOpts, SetBenchmarkConfig(distributed))
-	}
-
-	ssOpts := []generator.TypedManifestModifier[generator.WorkspaceGeneratorContext, appsv1.StatefulSet]{
-		manifests.GenerateStatefulSetManifest(revisionNum, numNodes),
-	}
-
-	if checkIfNVMeAvailable(ctx, gpuConfig, kubeClient) {
-		ssOpts = append(ssOpts, manifests.AddStatefulSetVolumeClaimTemplates(GenerateModelWeightsCacheVolume(ctx, workspaceObj, model)))
-	} else {
-		podOpts = append(podOpts, SetDefaultModelWeightsVolume)
-	}
-
-	podSpec, err := generator.GenerateManifest(gctx, podOpts...)
-	if err != nil {
-		return nil, err
-	}
-
-	ssOpts = append(ssOpts, manifests.SetStatefulSetPodSpec(podSpec))
-
-	return generator.GenerateManifest(gctx, ssOpts...)
+	_ = "STUB: not implemented"
+	return *new(client.Object), nil
 }
+
+// Set the target node count for the inference workload
+
+// Use StatefulSet for all use cases to ensure consistent pod identity and storage management
+// For multi-node distributed inference with vLLM, we need StatefulSet to ensure pods are
+// created with individual identities (their ordinal indexes) -
+// https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#pod-identity
 
 func getGPUConfig(ctx *generator.WorkspaceGeneratorContext) (*sku.GPUConfig, error) {
-	if featuregates.FeatureGates[consts.FeatureFlagDisableNodeAutoProvisioning] {
-		// NAP is disabled (BYO scenario) - prefer to get GPU config from matching nodes with nvidia.com labels
-		// Only try to find matching nodes if we have a labelSelector and if WorkerNodes is not already populated
-		readyNodes, err := resources.GetReadyNodes(ctx.Ctx, ctx.KubeClient, ctx.Workspace)
-		if err != nil {
-			return nil, fmt.Errorf("failed to list ready nodes: %w", err)
-		}
-		if len(readyNodes) == 0 {
-			return nil, fmt.Errorf("no ready nodes found matching the workspace's label selector")
-		}
-
-		return utils.GetGPUConfigFromNodeLabels(readyNodes[0])
-	} else {
-		// NAP is enabled - try to get GPU config from known SKU
-		gpuConfig, err := utils.GetGPUConfigBySKU(ctx.Workspace.Resource.InstanceType)
-		if err != nil {
-			return nil, err
-		}
-
-		return gpuConfig, nil
-	}
+	_ = "STUB: not implemented"
+	return nil, nil
 }
 
+// NAP is disabled (BYO scenario) - prefer to get GPU config from matching nodes with nvidia.com labels
+// Only try to find matching nodes if we have a labelSelector and if WorkerNodes is not already populated
+
+// NAP is enabled - try to get GPU config from known SKU
+
 func shouldUseDistributedInference(ctx *generator.WorkspaceGeneratorContext, numNodes int) bool {
-	runtimeName := v1beta1.GetWorkspaceRuntimeName(ctx.Workspace)
-	return ctx.Model.SupportDistributedInference() && runtimeName == pkgmodel.RuntimeNameVLLM && numNodes > 1
+	_ = "STUB: not implemented"
+	return false
 }
 
 type probeType string
@@ -243,81 +128,29 @@ const (
 )
 
 func checkIfNVMeAvailable(ctx context.Context, gpuConfig *sku.GPUConfig, kubeClient client.Client) bool {
-	if gpuConfig == nil || !gpuConfig.NVMeDiskEnabled {
-		return false
-	}
-
-	// Check if the required NVMe storage class exists
-	storageClass := &storagev1.StorageClass{}
-	err := kubeClient.Get(ctx, client.ObjectKey{Name: consts.LocalNVMeStorageClass}, storageClass)
-	if err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			return false
-		}
-		klog.ErrorS(err, "Failed to check for NVMe storage class. Assuming it's available.")
-	}
-	return true
+	_ = "STUB: not implemented"
+	return false
 }
+
+// Check if the required NVMe storage class exists
 
 // getDistributedInferenceProbe returns a container probe configuration for the distributed inference workload.
 func getDistributedInferenceProbe(probeType probeType, wObj *v1beta1.Workspace, initialDelaySeconds, periodSeconds, timeoutSeconds, failureThreshold int32) *corev1.Probe {
-	args := map[string]string{
-		"leader-address": utils.GetRayLeaderHost(wObj.ObjectMeta),
-	}
-	switch probeType {
-	case probeTypeLiveness:
-		args["ray-port"] = strconv.Itoa(pkgmodel.PortRayCluster)
-	case probeTypeReadiness:
-		args["vllm-port"] = strconv.FormatInt(int64(consts.PortInferenceServer), 10)
-	}
-
-	// for distributed inference, we cannot use the default http probe since only the leader pod
-	// exposes the health check endpoint. We need to use presets/workspace/inference/vllm/multi-node-health-check.py
-	// to check the health of both the leader and worker pods.
-	cmd := utils.BuildCmdStr(
-		fmt.Sprintf("%s %s", DefaultVLLMMultiNodeHealthCheckCommand, probeType),
-		args,
-	)
-	probe := &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			Exec: &corev1.ExecAction{
-				Command: utils.ShellCmd(cmd),
-			},
-		},
-		InitialDelaySeconds: initialDelaySeconds,
-		PeriodSeconds:       periodSeconds,
-		TimeoutSeconds:      timeoutSeconds,
-		FailureThreshold:    failureThreshold,
-	}
-	if probeType == probeTypeLiveness {
-		probe.TerminationGracePeriodSeconds = lo.ToPtr(int64(1))
-	}
-
-	return probe
+	_ = "STUB: not implemented"
+	return nil
 }
 
-func buildStartupProbe(timeout time.Duration) *corev1.Probe {
-	const periodSeconds = 10
-	// ceil(timeout / period) ensures the full timeout window is covered.
-	failureThreshold := int32(math.Ceil(timeout.Seconds() / periodSeconds))
-	return &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Port: intstr.FromInt32(consts.PortInferenceServer),
-				Path: ProbePath,
-			},
-		},
-		InitialDelaySeconds: 0,
-		PeriodSeconds:       periodSeconds,
-		FailureThreshold:    failureThreshold,
-	}
-}
+// for distributed inference, we cannot use the default http probe since only the leader pod
+// exposes the health check endpoint. We need to use presets/workspace/inference/vllm/multi-node-health-check.py
+// to check the health of both the leader and worker pods.
+
+func buildStartupProbe(timeout time.Duration) *corev1.Probe { _ = "STUB: not implemented"; return nil }
+
+// ceil(timeout / period) ensures the full timeout window is covered.
 
 func buildDistributedStartupProbe(timeout time.Duration, wObj *v1beta1.Workspace) *corev1.Probe {
-	const periodSeconds = int32(10)
-	const timeoutSeconds = int32(1)
-	failureThreshold := int32(math.Ceil(timeout.Seconds() / float64(periodSeconds)))
-	return getDistributedInferenceProbe(probeTypeReadiness, wObj, 0, periodSeconds, timeoutSeconds, failureThreshold)
+	_ = "STUB: not implemented"
+	return nil
 }
 
 // buildBenchmarkStartupProbe returns an exec startup probe that runs
@@ -334,358 +167,99 @@ func buildDistributedStartupProbe(timeout time.Duration, wObj *v1beta1.Workspace
 //
 // timeoutSeconds is set to 600 to prevent kubelet killing the process mid-benchmark.
 func buildBenchmarkStartupProbe(timeout time.Duration, wObj *v1beta1.Workspace, distributed bool) *corev1.Probe {
-	const periodSeconds = int32(10)
-	const timeoutSeconds = int32(600) // covers benchmark duration + drain + buffer
-	failureThreshold := int32(math.Ceil(timeout.Seconds() / float64(periodSeconds)))
-
-	var command []string
-	if !distributed {
-		command = []string{"python3", "/workspace/vllm/benchmark_entrypoint.py"}
-	} else {
-		workerCmd := utils.BuildCmdStr(
-			fmt.Sprintf("%s readiness", DefaultVLLMMultiNodeHealthCheckCommand),
-			map[string]string{
-				"leader-address": utils.GetRayLeaderHost(wObj.ObjectMeta),
-				"vllm-port":      strconv.FormatInt(int64(consts.PortInferenceServer), 10),
-			},
-		)
-		cmd := fmt.Sprintf(
-			`if [ "$POD_INDEX" = "0" ]; then python3 /workspace/vllm/benchmark_entrypoint.py; else %s; fi`,
-			workerCmd,
-		)
-		command = utils.ShellCmd(cmd)
-	}
-
-	return &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			Exec: &corev1.ExecAction{
-				Command: command,
-			},
-		},
-		PeriodSeconds:    periodSeconds,
-		TimeoutSeconds:   timeoutSeconds,
-		FailureThreshold: failureThreshold,
-	}
+	_ = "STUB: not implemented"
+	return nil
 }
 
-func GetBaseImageName() string {
-	presetObj := metadata.MustGet("base")
-	return utils.GetPresetImageName(presetObj.Registry, presetObj.Name, presetObj.Tag)
-}
+// covers benchmark duration + drain + buffer
+
+func GetBaseImageName() string { _ = "STUB: not implemented"; return "" }
 
 func GenerateInferencePodSpec(gpuConfig *sku.GPUConfig, numNodes int) func(*generator.WorkspaceGeneratorContext, *corev1.PodSpec) error {
-	return func(ctx *generator.WorkspaceGeneratorContext, spec *corev1.PodSpec) error {
-		configVolume, err := resources.EnsureConfigOrCopyFromDefault(ctx.Ctx, ctx.KubeClient,
-			client.ObjectKey{
-				Name:      ctx.Workspace.Inference.Config,
-				Namespace: ctx.Workspace.Namespace,
-			},
-			client.ObjectKey{
-				Name: v1beta1.DefaultInferenceConfigTemplate,
-			},
-		)
-		if err != nil {
-			return err
-		}
-
-		// debug print of configVolume (requested)
-		klog.Infof("[debug] configVolume name=%s keys=%v", configVolume.Name, lo.Keys(configVolume.Data))
-
-		// additional volume
-		var volumes []corev1.Volume
-		var volumeMounts []corev1.VolumeMount
-
-		// Add config volume mount
-		cmVolume, cmVolumeMount := utils.ConfigCMVolume(configVolume.Name)
-		volumes = append(volumes, cmVolume)
-		volumeMounts = append(volumeMounts, cmVolumeMount)
-
-		// add model weights volume mount
-		volumeMounts = append(volumeMounts, utils.DefaultModelWeightsVolumeMount)
-
-		// add share memory for cross process communication
-		shmVolume, shmVolumeMount := utils.ConfigSHMVolume()
-		volumes = append(volumes, shmVolume)
-		volumeMounts = append(volumeMounts, shmVolumeMount)
-
-		// node selector
-		selectorLabels := v1beta1.SanitizedMatchLabels(ctx.Workspace.Resource.LabelSelector)
-		nodeRequirements := make([]corev1.NodeSelectorRequirement, 0, len(selectorLabels))
-		for key, value := range selectorLabels {
-			nodeRequirements = append(nodeRequirements, corev1.NodeSelectorRequirement{
-				Key:      key,
-				Operator: corev1.NodeSelectorOpIn,
-				Values:   []string{value},
-			})
-		}
-
-		// resource requirements
-		resourceReq := corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceName(resources.CapacityNvidiaGPU): *resource.NewQuantity(int64(gpuConfig.GPUCount), resource.DecimalSI),
-			},
-			Limits: corev1.ResourceList{
-				corev1.ResourceName(resources.CapacityNvidiaGPU): *resource.NewQuantity(int64(gpuConfig.GPUCount), resource.DecimalSI),
-			},
-		}
-
-		// inference command
-		inferenceParam := ctx.Model.GetInferenceParameters().DeepCopy()
-		runtimeName := v1beta1.GetWorkspaceRuntimeName(ctx.Workspace)
-
-		// Calculate max-model-len for runtime context
-		maxModelLen := 2048 // Default value
-		if ctx.Workspace.Inference != nil {
-			if runtimeName == pkgmodel.RuntimeNameVLLM {
-				presetParams := ctx.Model.GetInferenceParameters()
-				if presetParams != nil {
-					if raw, ok := configVolume.Data["inference_config.yaml"]; ok && raw != "" {
-						// First check if user provided explicit value in ConfigMap
-						//if v, ok2 := utils.ParseExplicitMaxModelLen(raw); ok2 {
-						//maxModelLen = v
-						//klog.Infof("[RuntimeContext] workspace=%s using user explicit max-model-len=%d", ctx.Workspace.Name, maxModelLen)
-						//} else {
-						// If no user value, compute planned value
-						maxModelLen = computeMaxModelLen(presetParams, gpuConfig, numNodes)
-						klog.Infof("[RuntimeContext] workspace=%s using computed max-model-len=%d (gpuConfig=%s, numNodes=%d)", ctx.Workspace.Name, maxModelLen, gpuConfig.String(), numNodes)
-						//}
-					}
-				}
-			}
-		}
-
-		// When the routing sidecar is needed, it will be injected after the
-		// main container is created. vLLM keeps its default port (5000).
-		isSidecarNeeded := needsRoutingSidecar(ctx.Workspace)
-
-		commands := inferenceParam.GetInferenceCommand(pkgmodel.RuntimeContext{
-			RuntimeName:          runtimeName,
-			GPUConfig:            gpuConfig,
-			ConfigVolume:         &cmVolumeMount,
-			SKUNumGPUs:           gpuConfig.GPUCount,
-			NumNodes:             numNodes,
-			WorkspaceMetadata:    ctx.Workspace.ObjectMeta,
-			DistributedInference: ctx.Model.SupportDistributedInference(),
-			MaxModelLen:          maxModelLen,
-			RuntimeContextExtraArguments: pkgmodel.RuntimeContextExtraArguments{
-				AdaptersEnabled: len(ctx.Workspace.Inference.Adapters) > 0,
-				PerformanceMode: v1beta1.GetPerformanceMode(ctx.Workspace),
-			},
-		})
-
-		// Only set nodeAffinity when the user supplied selector labels.
-		// An empty MatchExpressions list is rejected by the Kubernetes API server.
-		if len(nodeRequirements) > 0 {
-			spec.Affinity = &corev1.Affinity{
-				NodeAffinity: &corev1.NodeAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-						NodeSelectorTerms: []corev1.NodeSelectorTerm{
-							{
-								MatchExpressions: nodeRequirements,
-							},
-						},
-					},
-				},
-			}
-		}
-		spec.ImagePullSecrets = GetInferenceImageInfo(ctx.Ctx, ctx.Workspace)
-
-		// Use the model's ReadinessTimeout if specified; otherwise fall back to the
-		// default. containerStatuses[].started is reliable for downstream.
-		readinessTimeout := inferenceParam.ReadinessTimeout
-		if readinessTimeout <= 0 {
-			readinessTimeout = defaultStartupProbeTimeout
-		}
-
-		spec.Containers = []corev1.Container{
-			{
-				Name:           ctx.Workspace.Name,
-				Image:          GetBaseImageName(),
-				Command:        commands,
-				Resources:      resourceReq,
-				Ports:          containerPorts,
-				StartupProbe:   buildStartupProbe(readinessTimeout),
-				LivenessProbe:  defaultLivenessProbe,
-				ReadinessProbe: defaultReadinessProbe,
-				VolumeMounts:   volumeMounts,
-			},
-		}
-
-		applyInferenceRoleEnv(ctx.Workspace.Labels, ctx.Workspace.Name, spec)
-
-		if isSidecarNeeded {
-			injectRoutingSidecar(spec)
-		}
-
-		spec.Tolerations = defaultTolerations(ctx.Workspace)
-		spec.Volumes = volumes
-
-		return nil
-	}
+	_ = "STUB: not implemented"
+	return nil
 }
+
+// debug print of configVolume (requested)
+
+// additional volume
+
+// Add config volume mount
+
+// add model weights volume mount
+
+// add share memory for cross process communication
+
+// node selector
+
+// resource requirements
+
+// inference command
+
+// Calculate max-model-len for runtime context
+// Default value
+
+// First check if user provided explicit value in ConfigMap
+//if v, ok2 := utils.ParseExplicitMaxModelLen(raw); ok2 {
+//maxModelLen = v
+//klog.Infof("[RuntimeContext] workspace=%s using user explicit max-model-len=%d", ctx.Workspace.Name, maxModelLen)
+//} else {
+// If no user value, compute planned value
+
+//}
+
+// When the routing sidecar is needed, it will be injected after the
+// main container is created. vLLM keeps its default port (5000).
+
+// Only set nodeAffinity when the user supplied selector labels.
+// An empty MatchExpressions list is rejected by the Kubernetes API server.
+
+// Use the model's ReadinessTimeout if specified; otherwise fall back to the
+// default. containerStatuses[].started is reliable for downstream.
 
 func SetModelDownloadInfo(ctx *generator.WorkspaceGeneratorContext, spec *corev1.PodSpec) error {
-	if ctx.Model.GetInferenceParameters().DownloadAtRuntime {
-		if accessSecret := ctx.Workspace.Inference.Preset.PresetOptions.ModelAccessSecret; accessSecret != "" {
-			envvar := corev1.EnvVar{
-				Name: "HF_TOKEN",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: ctx.Workspace.Inference.Preset.PresetOptions.ModelAccessSecret,
-						},
-						Key: "HF_TOKEN",
-					},
-				},
-			}
-
-			for i := range spec.Containers {
-				// add HF_TOKEN env var to the main inference container only
-				if spec.Containers[i].Name == ctx.Workspace.Name {
-					spec.Containers[i].Env = append(spec.Containers[i].Env, envvar)
-				}
-			}
-		}
-		return nil
-	}
-
-	// additional initContainers
-	initContainers := manifests.GenerateModelPullerContainer(ctx.Ctx, ctx.Workspace, ctx.Model.GetInferenceParameters())
-	spec.InitContainers = append(spec.InitContainers, initContainers...)
+	_ = "STUB: not implemented"
 	return nil
 }
+
+// add HF_TOKEN env var to the main inference container only
+
+// additional initContainers
 
 func SetAdapterPuller(ctx *generator.WorkspaceGeneratorContext, spec *corev1.PodSpec) error {
-	if len(ctx.Workspace.Inference.Adapters) == 0 {
-		return nil
-	}
-
-	// Find the main inference container by workspace name.
-	mainIdx := -1
-	for i := range spec.Containers {
-		if spec.Containers[i].Name == ctx.Workspace.Name {
-			mainIdx = i
-			break
-		}
-	}
-	if mainIdx == -1 {
-		return fmt.Errorf("main inference container %q not found", ctx.Workspace.Name)
-	}
-
-	// Separate adapters by source type
-	var imageAdapters []v1beta1.AdapterSpec
-	var volumeAdapters []v1beta1.AdapterSpec
-	for _, adapter := range ctx.Workspace.Inference.Adapters {
-		if adapter.Source != nil && adapter.Source.Volume != nil {
-			volumeAdapters = append(volumeAdapters, adapter)
-		} else {
-			imageAdapters = append(imageAdapters, adapter)
-		}
-	}
-
-	// Handle image-based adapters (existing flow: EmptyDir + puller init containers)
-	if len(imageAdapters) > 0 {
-		adapterVolume, adapterVolumeMount := utils.ConfigAdapterVolume(nil)
-		spec.Volumes = append(spec.Volumes, adapterVolume)
-		spec.Containers[mainIdx].VolumeMounts = append(spec.Containers[mainIdx].VolumeMounts, adapterVolumeMount)
-
-		// add container to pull adapters
-		volumeMounts := []corev1.VolumeMount{adapterVolumeMount}
-		pullerContainers, pullerEnvVars, pullerVolumes := manifests.GeneratePullerContainers(ctx.Workspace, imageAdapters, volumeMounts)
-		spec.InitContainers = append(spec.InitContainers, pullerContainers...)
-		spec.Volumes = append(spec.Volumes, pullerVolumes...)
-		spec.Containers[mainIdx].Env = append(spec.Containers[mainIdx].Env, pullerEnvVars...)
-	}
-
-	// Handle volume-based adapters (mount volume directly, no puller needed)
-	for _, adapter := range volumeAdapters {
-		sourceName := adapter.Source.Name
-		volumeName := fmt.Sprintf("adapter-volume-%s", sourceName)
-		mountPath := fmt.Sprintf("%s/%s", utils.DefaultAdapterVolumePath, sourceName)
-
-		volume := corev1.Volume{
-			Name:         volumeName,
-			VolumeSource: *adapter.Source.Volume,
-		}
-		volumeMount := corev1.VolumeMount{
-			Name:      volumeName,
-			MountPath: mountPath,
-		}
-		spec.Volumes = append(spec.Volumes, volume)
-		spec.Containers[mainIdx].VolumeMounts = append(spec.Containers[mainIdx].VolumeMounts, volumeMount)
-
-		// Propagate strength env vars for volume adapters
-		if adapter.Strength != nil {
-			envVar := corev1.EnvVar{
-				Name:  sourceName,
-				Value: *adapter.Strength,
-			}
-			spec.Containers[mainIdx].Env = append(spec.Containers[mainIdx].Env, envVar)
-		}
-	}
-
+	_ = "STUB: not implemented"
 	return nil
 }
+
+// Find the main inference container by workspace name.
+
+// Separate adapters by source type
+
+// Handle image-based adapters (existing flow: EmptyDir + puller init containers)
+
+// add container to pull adapters
+
+// Handle volume-based adapters (mount volume directly, no puller needed)
+
+// Propagate strength env vars for volume adapters
 
 // SetBenchmarkConfig overrides the startup probe to run the benchmark entrypoint.
 // It must be appended after GenerateInferencePodSpec (and SetDistributedInferenceProbe
 // when distributed) so the container already exists.
 func SetBenchmarkConfig(distributed bool) generator.TypedManifestModifier[generator.WorkspaceGeneratorContext, corev1.PodSpec] {
-	return func(ctx *generator.WorkspaceGeneratorContext, spec *corev1.PodSpec) error {
-		inferenceParam := ctx.Model.GetInferenceParameters()
-		readinessTimeout := inferenceParam.ReadinessTimeout
-		if readinessTimeout <= 0 {
-			readinessTimeout = defaultStartupProbeTimeout
-		}
-
-		var wObj *v1beta1.Workspace
-		if distributed {
-			wObj = ctx.Workspace
-		}
-		startupProbe := buildBenchmarkStartupProbe(readinessTimeout, wObj, distributed)
-
-		for i := range spec.Containers {
-			if spec.Containers[i].Name == ctx.Workspace.Name {
-				spec.Containers[i].StartupProbe = startupProbe
-				break
-			}
-		}
-		return nil
-	}
-}
-
-func SetDistributedInferenceProbe(ctx *generator.WorkspaceGeneratorContext, spec *corev1.PodSpec) error {
-	readinessTimeout := ctx.Model.GetInferenceParameters().ReadinessTimeout
-	if readinessTimeout <= 0 {
-		readinessTimeout = defaultStartupProbeTimeout
-	}
-
-	// 60 seconds initial delay for liveness probe to allow workers to join the cluster
-	livenessProbe := getDistributedInferenceProbe(probeTypeLiveness, ctx.Workspace, 60, 10, 5, 1)
-	readinessProbe := getDistributedInferenceProbe(probeTypeReadiness, ctx.Workspace, 0, 10, 1, 1)
-	startupProbe := buildDistributedStartupProbe(readinessTimeout, ctx.Workspace)
-	envVar := corev1.EnvVar{
-		Name: "POD_INDEX",
-		ValueFrom: &corev1.EnvVarSource{
-			FieldRef: &corev1.ObjectFieldSelector{
-				FieldPath: fmt.Sprintf("metadata.labels['%s']", appsv1.PodIndexLabel),
-			},
-		},
-	}
-	for i := range spec.Containers {
-		if spec.Containers[i].Name == ctx.Workspace.Name {
-			spec.Containers[i].StartupProbe = startupProbe
-			spec.Containers[i].LivenessProbe = livenessProbe
-			spec.Containers[i].ReadinessProbe = readinessProbe
-			spec.Containers[i].Env = append(spec.Containers[i].Env, envVar)
-			break
-		}
-	}
+	_ = "STUB: not implemented"
 	return nil
 }
 
+func SetDistributedInferenceProbe(ctx *generator.WorkspaceGeneratorContext, spec *corev1.PodSpec) error {
+	_ = "STUB: not implemented"
+	return nil
+}
+
+// 60 seconds initial delay for liveness probe to allow workers to join the cluster
+
 func SetDefaultModelWeightsVolume(ctx *generator.WorkspaceGeneratorContext, spec *corev1.PodSpec) error {
-	spec.Volumes = append(spec.Volumes, utils.DefaultModelWeightsVolume)
+	_ = "STUB: not implemented"
 	return nil
 }
 
@@ -694,57 +268,15 @@ func SetDefaultModelWeightsVolume(ctx *generator.WorkspaceGeneratorContext, spec
 // inference-role label (prefill or decode). Only the main container needs this
 // env var; sidecar containers do not use it.
 func applyInferenceRoleEnv(labels map[string]string, containerName string, spec *corev1.PodSpec) {
-	role, ok := labels[v1beta1.LabelInferenceRole]
-	if !ok || (role != string(kaitov1alpha1.MultiRoleInferenceRolePrefill) && role != string(kaitov1alpha1.MultiRoleInferenceRoleDecode)) {
-		return
-	}
-	for i := range spec.Containers {
-		if spec.Containers[i].Name == containerName {
-			spec.Containers[i].Env = append(spec.Containers[i].Env, corev1.EnvVar{
-				Name:  consts.InferenceRoleEnvName,
-				Value: role,
-			})
-			return
-		}
-	}
+	_ = "STUB: not implemented"
+	return
 }
 
 // injectRoutingSidecar appends the llm-d routing sidecar container to the pod
 // spec. The sidecar listens on PortRoutingSidecar (5001) and proxies to the
 // main vLLM container which keeps its default PortInferenceServer (5000).
 // No port or probe rewriting is needed on the main container.
-func injectRoutingSidecar(spec *corev1.PodSpec) {
-	if len(spec.Containers) == 0 {
-		return
-	}
-
-	spec.Containers = append(spec.Containers, corev1.Container{
-		Name:  "llm-d-routing-sidecar",
-		Image: fmt.Sprintf("%s:%s", consts.RoutingSidecarImage, consts.RoutingSidecarTag),
-		Args: []string{
-			fmt.Sprintf("--port=%d", consts.PortRoutingSidecar),
-			fmt.Sprintf("--vllm-port=%d", consts.PortInferenceServer),
-			"--secure-proxy=false",
-		},
-		Ports: []corev1.ContainerPort{
-			{ContainerPort: consts.PortRoutingSidecar, Name: "sidecar", Protocol: corev1.ProtocolTCP},
-		},
-		Env: []corev1.EnvVar{
-			{
-				Name: "POD_IP",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"},
-				},
-			},
-		},
-	})
-}
+func injectRoutingSidecar(spec *corev1.PodSpec) { _ = "STUB: not implemented"; return }
 
 // needsRoutingSidecar returns true if the workspace requires the llm-d routing sidecar.
-func needsRoutingSidecar(ws *v1beta1.Workspace) bool {
-	role, ok := ws.Labels[v1beta1.LabelInferenceRole]
-	if !ok || role != string(kaitov1alpha1.MultiRoleInferenceRoleDecode) {
-		return false
-	}
-	return v1beta1.GetWorkspaceRuntimeName(ws) == pkgmodel.RuntimeNameVLLM
-}
+func needsRoutingSidecar(ws *v1beta1.Workspace) bool { _ = "STUB: not implemented"; return false }

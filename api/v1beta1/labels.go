@@ -16,7 +16,6 @@ package v1beta1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/kaito-project/kaito/pkg/featuregates"
 	"github.com/kaito-project/kaito/pkg/model"
 	"github.com/kaito-project/kaito/pkg/utils/consts"
 )
@@ -93,32 +92,14 @@ const (
 
 // GetWorkspaceRuntimeName returns the runtime name of the workspace.
 func GetWorkspaceRuntimeName(ws *Workspace) model.RuntimeName {
-	if ws == nil {
-		panic("workspace is nil")
-	}
-
-	if !featuregates.FeatureGates[consts.FeatureFlagVLLM] {
-		return model.RuntimeNameHuggingfaceTransformers
-	}
-
-	runtime := model.RuntimeNameVLLM
-	name := ws.Annotations[AnnotationWorkspaceRuntime]
-	switch name {
-	case string(model.RuntimeNameHuggingfaceTransformers):
-		runtime = model.RuntimeNameHuggingfaceTransformers
-	case string(model.RuntimeNameVLLM):
-		runtime = model.RuntimeNameVLLM
-	}
-
-	return runtime
+	_ = "STUB: not implemented"
+	return *new(model.RuntimeName)
 }
 
 // IsRunBenchmarkEnabled reports whether the workspace benchmark is enabled.
 // The benchmark is on by default; it is only disabled when the annotation
 // kaito.sh/disable-benchmark is explicitly set to "true".
-func IsRunBenchmarkEnabled(ws *Workspace) bool {
-	return ws.Annotations[AnnotationDisableBenchmark] != "true"
-}
+func IsRunBenchmarkEnabled(ws *Workspace) bool { _ = "STUB: not implemented"; return false }
 
 // ShouldRunBenchmark reports whether the workspace should run the post-load
 // benchmark. The benchmark requires all of the following:
@@ -126,23 +107,11 @@ func IsRunBenchmarkEnabled(ws *Workspace) bool {
 //  2. The workspace uses the vLLM runtime (benchmark_entrypoint.py is vLLM-only).
 //  3. The workspace uses a preset inference config (template workspaces use
 //     custom containers that do not include the benchmark entrypoint).
-func ShouldRunBenchmark(ws *Workspace) bool {
-	return IsRunBenchmarkEnabled(ws) &&
-		GetWorkspaceRuntimeName(ws) == model.RuntimeNameVLLM &&
-		ws.Inference != nil && ws.Inference.Preset != nil
-}
+func ShouldRunBenchmark(ws *Workspace) bool { _ = "STUB: not implemented"; return false }
 
 // GetPerformanceMode returns the performance mode annotation value, defaulting to
 // PerformanceModeBalanced when the annotation is absent or empty.
-func GetPerformanceMode(ws *Workspace) string {
-	if ws == nil {
-		return PerformanceModeBalanced
-	}
-	if v := ws.Annotations[AnnotationPerformanceMode]; v != "" {
-		return v
-	}
-	return PerformanceModeBalanced
-}
+func GetPerformanceMode(ws *Workspace) string { _ = "STUB: not implemented"; return "" }
 
 // reservedSelectorLabelKeys are labels that KAITO controllers apply to their
 // own NodeClaims/Nodes/NodePools. Users must not include them in resource
@@ -164,10 +133,7 @@ var reservedSelectorLabelKeys = map[string]struct{}{
 
 // IsReservedSelectorLabel reports whether the given label key is reserved by
 // KAITO and must not be honored when supplied via a user-defined selector.
-func IsReservedSelectorLabel(key string) bool {
-	_, ok := reservedSelectorLabelKeys[key]
-	return ok
-}
+func IsReservedSelectorLabel(key string) bool { _ = "STUB: not implemented"; return false }
 
 // SanitizedMatchLabels returns the MatchLabels of selector with any
 // KAITO-reserved keys removed. Returns nil when selector is nil or has no
@@ -175,18 +141,6 @@ func IsReservedSelectorLabel(key string) bool {
 // least one entry is preserved; callers must not assume identity with the
 // input map.
 func SanitizedMatchLabels(selector *metav1.LabelSelector) map[string]string {
-	if selector == nil || len(selector.MatchLabels) == 0 {
-		return nil
-	}
-	out := make(map[string]string, len(selector.MatchLabels))
-	for k, v := range selector.MatchLabels {
-		if IsReservedSelectorLabel(k) {
-			continue
-		}
-		out[k] = v
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
+	_ = "STUB: not implemented"
+	return nil
 }

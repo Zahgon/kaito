@@ -24,9 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	karpenterv1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 
-	kaitov1beta1 "github.com/kaito-project/kaito/api/v1beta1"
 	"github.com/kaito-project/kaito/pkg/utils"
-	"github.com/kaito-project/kaito/pkg/utils/consts"
 )
 
 type nodeClaimEventHandler struct {
@@ -38,47 +36,31 @@ type nodeClaimEventHandler struct {
 var _ handler.TypedEventHandler[client.Object, reconcile.Request] = (*nodeClaimEventHandler)(nil)
 
 func getControllerKeyForNodeClaim(nc *karpenterv1.NodeClaim) *client.ObjectKey {
+	_ = "STUB: not implemented"
 	// Legacy gpu-provisioner path.
-	if name, ok := nc.Labels[kaitov1beta1.LabelWorkspaceName]; ok {
-		if namespace, ok := nc.Labels[kaitov1beta1.LabelWorkspaceNamespace]; ok {
-			return &client.ObjectKey{Namespace: namespace, Name: name}
-		}
-	}
-	// Karpenter path.
-	if name, ok := nc.Labels[consts.KarpenterWorkspaceNameKey]; ok {
-		if namespace, ok := nc.Labels[consts.KarpenterWorkspaceNamespaceKey]; ok {
-			return &client.ObjectKey{Namespace: namespace, Name: name}
-		}
-	}
 	return nil
 }
 
+// Karpenter path.
+
 func (n *nodeClaimEventHandler) Create(ctx context.Context, evt event.TypedCreateEvent[client.Object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	nc := evt.Object.(*karpenterv1.NodeClaim)
-	if nc.DeletionTimestamp != nil {
-		n.Delete(ctx, event.TypedDeleteEvent[client.Object]{Object: nc}, q)
-		return
-	}
-	if key := getControllerKeyForNodeClaim(nc); key != nil {
-		n.expectations.CreationObserved(n.logger, key.String())
-		n.enqueueHandler.Create(ctx, evt, q)
-	}
+	_ = "STUB: not implemented"
+	return
 }
 
 func (n *nodeClaimEventHandler) Delete(ctx context.Context, evt event.TypedDeleteEvent[client.Object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	nc := evt.Object.(*karpenterv1.NodeClaim)
-	if key := getControllerKeyForNodeClaim(nc); key != nil {
-		n.expectations.DeletionObserved(n.logger, key.String())
-	}
-
-	n.enqueueHandler.Delete(ctx, evt, q)
+	_ = "STUB: not implemented"
+	return
 }
 
 func (n *nodeClaimEventHandler) Generic(ctx context.Context, evt event.TypedGenericEvent[client.Object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	_ = "STUB: not implemented"
+	return
 }
 
 func (n *nodeClaimEventHandler) Update(ctx context.Context, evt event.TypedUpdateEvent[client.Object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	n.enqueueHandler.Update(ctx, evt, q)
+	_ = "STUB: not implemented"
+	return
 }
 
 var enqueueWorkspaceForNodeClaim = handler.EnqueueRequestsFromMapFunc(

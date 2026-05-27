@@ -194,4 +194,4 @@ func init() {
 }
 
 // Hub marks this type as a conversion hub.
-func (*RAGEngine) Hub() {}
+func (*RAGEngine) Hub() { _ = "STUB: not implemented"; return }

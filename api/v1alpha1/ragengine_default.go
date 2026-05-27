@@ -18,5 +18,4 @@ import (
 )
 
 // SetDefaults for the RAG Engine
-func (w *RAGEngine) SetDefaults(_ context.Context) {
-}
+func (w *RAGEngine) SetDefaults(_ context.Context) { _ = "STUB: not implemented"; return }

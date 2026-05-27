@@ -17,10 +17,8 @@ import (
 	"context"
 	"reflect"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -89,38 +87,14 @@ var (
 
 // UpdateWorkspaceStatus updates the workspace status with the provided condition
 func UpdateWorkspaceStatus(ctx context.Context, c client.Client, name *client.ObjectKey, modifyFn func(*kaitov1beta1.WorkspaceStatus) error) error {
-	return retry.OnError(retry.DefaultRetry,
-		func(err error) bool {
-			return apierrors.IsServiceUnavailable(err) || apierrors.IsServerTimeout(err) || apierrors.IsTooManyRequests(err) || apierrors.IsConflict(err)
-		},
-		func() error {
-			// Read the latest version to avoid update conflict.
-			wObj := &kaitov1beta1.Workspace{}
-			if err := c.Get(ctx, *name, wObj); err != nil {
-				if !apierrors.IsNotFound(err) {
-					return err
-				}
-				return nil
-			}
-			if modifyFn != nil {
-				if err := modifyFn(&wObj.Status); err != nil {
-					return err
-				}
-			}
-			return c.Status().Update(ctx, wObj)
-		})
+	_ = "STUB: not implemented"
+	return nil
 }
+
+// Read the latest version to avoid update conflict.
 
 // UpdateWorkspaceWithRetry gets the latest workspace object, applies the modify function, and retries on conflict
 func UpdateWorkspaceWithRetry(ctx context.Context, c client.Client, wObj *kaitov1beta1.Workspace, modifyFn func(*kaitov1beta1.Workspace) error) error {
-	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		latestWorkspace := &kaitov1beta1.Workspace{}
-		if err := c.Get(ctx, client.ObjectKeyFromObject(wObj), latestWorkspace); err != nil {
-			return err
-		}
-		if err := modifyFn(latestWorkspace); err != nil {
-			return err
-		}
-		return c.Update(ctx, latestWorkspace)
-	})
+	_ = "STUB: not implemented"
+	return nil
 }

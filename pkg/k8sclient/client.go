@@ -20,20 +20,15 @@ import (
 
 var Client client.Client
 
-func SetGlobalClient(c client.Client) {
-	Client = c
-}
+func SetGlobalClient(c client.Client) { _ = "STUB: not implemented"; return }
 
-func GetGlobalClient() client.Client {
-	return Client
-}
+func GetGlobalClient() client.Client { _ = "STUB: not implemented"; return *new(client.Client) }
 
 var ClientGoClient kubernetes.Interface
 
-func SetGlobalClientGoClient(c kubernetes.Interface) {
-	ClientGoClient = c
-}
+func SetGlobalClientGoClient(c kubernetes.Interface) { _ = "STUB: not implemented"; return }
 
 func GetGlobalClientGoClient() kubernetes.Interface {
-	return ClientGoClient
+	_ = "STUB: not implemented"
+	return *new(kubernetes.Interface)
 }

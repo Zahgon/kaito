@@ -14,30 +14,17 @@
 package utils
 
 import (
-	"fmt"
-	"net/url"
-	"os"
-	"sort"
-	"strconv"
-	"strings"
-
 	awsapis "github.com/aws/karpenter-provider-aws/pkg/apis"
 	awsv1 "github.com/aws/karpenter-provider-aws/pkg/apis/v1"
-	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	karpenterapis "sigs.k8s.io/karpenter/pkg/apis"
 	karpenterv1 "sigs.k8s.io/karpenter/pkg/apis/v1"
 
-	"github.com/kaito-project/kaito/pkg/apis"
 	"github.com/kaito-project/kaito/pkg/sku"
-	"github.com/kaito-project/kaito/pkg/utils/consts"
 )
 
 const (
@@ -68,218 +55,90 @@ var (
 	})
 )
 
-func Contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
+func Contains(s []string, e string) bool { _ = "STUB: not implemented"; return false }
 
 // SearchRawExtension performs a search for a key within a runtime.RawExtension.
 func SearchRawExtension(raw runtime.RawExtension, key string) (interface{}, bool, error) {
-	var data map[string]interface{}
-	if err := yaml.Unmarshal(raw.Raw, &data); err != nil {
-		return nil, false, fmt.Errorf("failed to unmarshal runtime.RawExtension: %w", err)
-	}
-
-	result, found := data[key]
-	if !found {
-		return nil, false, nil
-	}
-
-	return result, true, nil
+	_ = "STUB: not implemented"
+	return nil, false, nil
 }
 
 func BuildCmdStr(baseCommand string, runParams ...map[string]string) string {
-	updatedBaseCommand := baseCommand
-	for _, runParam := range runParams {
-		for key, value := range runParam {
-			if value == "" {
-				updatedBaseCommand = fmt.Sprintf("%s --%s", updatedBaseCommand, key)
-			} else {
-				updatedBaseCommand = fmt.Sprintf("%s --%s=%s", updatedBaseCommand, key, value)
-			}
-		}
-	}
-
-	return updatedBaseCommand
+	_ = "STUB: not implemented"
+	return ""
 }
 
 func BuildIfElseCmdStr(condition string, trueCmd string, trueCmdParams map[string]string, falseCmd string, falseCmdParams map[string]string) string {
-	trueCmdStr := BuildCmdStr(trueCmd, trueCmdParams)
-	falseCmdStr := BuildCmdStr(falseCmd, falseCmdParams)
-	return fmt.Sprintf("if %s; then %s; else %s; fi", condition, trueCmdStr, falseCmdStr)
+	_ = "STUB: not implemented"
+	return ""
 }
 
-func ShellCmd(command string) []string {
-	return []string{
-		"/bin/sh",
-		"-c",
-		command,
-	}
-}
+func ShellCmd(command string) []string { _ = "STUB: not implemented"; return nil }
 
 func GetReleaseNamespace() (string, error) {
+	_ = "STUB: not implemented"
 	// Path to the namespace file inside a Kubernetes pod
-	namespaceFilePath := "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
-
-	// Attempt to read the namespace from the file
-	if content, err := os.ReadFile(namespaceFilePath); err == nil {
-		return string(content), nil
-	}
-
-	// Fallback: Read the namespace from an environment variable
-	if namespace, exists := os.LookupEnv(consts.DefaultReleaseNamespaceEnvVar); exists {
-		return namespace, nil
-	}
-	return "", fmt.Errorf("failed to determine release namespace from file %s and env var %s", namespaceFilePath, consts.DefaultReleaseNamespaceEnvVar)
+	return "", nil
 }
+
+// Attempt to read the namespace from the file
+
+// Fallback: Read the namespace from an environment variable
 
 func GetSKUHandler() (sku.CloudSKUHandler, error) {
+	_ = "STUB: not implemented"
 	// Get the cloud provider from the environment
-	provider := os.Getenv("CLOUD_PROVIDER")
-
-	if provider == "" {
-		return nil, apis.ErrMissingField("CLOUD_PROVIDER environment variable must be set")
-	}
-	// Select the correct SKU handler based on the cloud provider
-	skuHandler := sku.GetCloudSKUHandler(provider)
-	if skuHandler == nil {
-		return nil, apis.ErrInvalidValue(fmt.Sprintf("Unsupported cloud provider %s", provider), "CLOUD_PROVIDER")
-	}
-
-	return skuHandler, nil
+	return *new(sku.CloudSKUHandler), nil
 }
 
-func IsAzureCloudProvider() bool {
-	return os.Getenv("CLOUD_PROVIDER") == consts.AzureCloudName
-}
+// Select the correct SKU handler based on the cloud provider
+
+func IsAzureCloudProvider() bool { _ = "STUB: not implemented"; return false }
 
 func GetGPUConfigBySKU(instanceType string) (*sku.GPUConfig, error) {
-	skuHandler, err := GetSKUHandler()
-	if err != nil {
-		return nil, apis.ErrInvalidValue(fmt.Sprintf("Failed to get SKU handler: %v", err), "sku")
-	}
-
-	config := skuHandler.GetGPUConfigBySKU(instanceType)
-	if config == nil {
-		return nil, apis.ErrInvalidValue(fmt.Sprintf("Unsupported SKU '%s' for cloud provider", instanceType), "sku")
-	}
-
-	return config, nil
+	_ = "STUB: not implemented"
+	return nil, nil
 }
 
 // GetGPUConfigFromNodeLabels extracts GPU configuration from nvidia.com labels on a node
 func GetGPUConfigFromNodeLabels(node *corev1.Node) (*sku.GPUConfig, error) {
-	gpuProduct, hasGPUProduct := node.Labels[consts.NvidiaGPUProduct]
-	gpuCountStr, hasGPUCount := node.Labels[consts.NvidiaGPUCount]
-	gpuMemoryStr, hasGPUMemory := node.Labels[consts.NvidiaGPUMemory]
-
-	// Check if all required nvidia.com labels are present
-	if !hasGPUProduct || !hasGPUCount || !hasGPUMemory {
-		return nil, fmt.Errorf("missing required nvidia.com labels on node %s", node.Name)
-	}
-
-	// Parse GPU count
-	gpuCount, err := strconv.Atoi(gpuCountStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid nvidia.com/gpu.count value on node %s: %s", node.Name, gpuCountStr)
-	}
-
-	// Parse GPU memory (nvidia.com/gpu.memory is per-GPU memory in MiB).
-	gpuMemoryMiB, err := strconv.Atoi(gpuMemoryStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid nvidia.com/gpu.memory value on node %s: %s", node.Name, gpuMemoryStr)
-	}
-
-	gpuMemGiB := int64((float64(gpuMemoryMiB)/1024)+0.5) * int64(gpuCount)
-
-	// Parse CUDA compute capability from nvidia.com/cuda.compute.major and nvidia.com/cuda.compute.minor labels.
-	// These are set by the NVIDIA GPU Feature Discovery (GFD) DaemonSet.
-	var cudaComputeCap float64
-	if majorStr, ok := node.Labels[consts.NvidiaCUDAComputeCapMajor]; ok {
-		if major, err := strconv.Atoi(majorStr); err == nil {
-			cudaComputeCap = float64(major)
-			if minorStr, ok := node.Labels[consts.NvidiaCUDAComputeCapMinor]; ok {
-				if minor, err := strconv.Atoi(minorStr); err == nil {
-					cudaComputeCap += float64(minor) / 10.0
-				}
-			}
-		}
-	}
-
-	return &sku.GPUConfig{
-		SKU:                   "unknown", // SKU is not available from node labels
-		GPUCount:              gpuCount,
-		GPUModel:              gpuProduct,
-		GPUMem:                *resource.NewQuantity(gpuMemGiB*consts.GiBToBytes, resource.BinarySI),
-		CUDAComputeCapability: cudaComputeCap,
-	}, nil
+	_ = "STUB: not implemented"
+	return nil, nil
 }
 
+// Check if all required nvidia.com labels are present
+
+// Parse GPU count
+
+// Parse GPU memory (nvidia.com/gpu.memory is per-GPU memory in MiB).
+
+// Parse CUDA compute capability from nvidia.com/cuda.compute.major and nvidia.com/cuda.compute.minor labels.
+// These are set by the NVIDIA GPU Feature Discovery (GFD) DaemonSet.
+
+// SKU is not available from node labels
+
 func ExtractAndValidateRepoName(image string) error {
+	_ = "STUB: not implemented"
 	// Extract repository name (part after the last / and before the colon :)
 	// For example given image: modelsregistry.azurecr.io/ADAPTER_HERE:0.0.1
-	parts := strings.Split(image, "/")
-	lastPart := parts[len(parts)-1]             // Extracts "ADAPTER_HERE:0.0.1"
-	repoName := strings.Split(lastPart, ":")[0] // Extracts "ADAPTER_HERE"
-
-	// Check if repository name is lowercase
-	if repoName != strings.ToLower(repoName) {
-		return fmt.Errorf("repository name must be lowercase")
-	}
-
 	return nil
 }
 
+// Extracts "ADAPTER_HERE:0.0.1"
+// Extracts "ADAPTER_HERE"
+
+// Check if repository name is lowercase
+
 func SelectNodes(qualified []*corev1.Node, preferred []string, previous []string, count int) []*corev1.Node {
-
-	sort.Slice(qualified, func(i, j int) bool {
-		iPreferred := Contains(preferred, qualified[i].Name)
-		jPreferred := Contains(preferred, qualified[j].Name)
-
-		if iPreferred && !jPreferred {
-			return true
-		} else if !iPreferred && jPreferred {
-			return false
-		} else { // either all are preferred, or none is preferred
-			iPrevious := Contains(previous, qualified[i].Name)
-			jPrevious := Contains(previous, qualified[j].Name)
-
-			if iPrevious && !jPrevious {
-				return true
-			} else if !iPrevious && jPrevious {
-				return false
-			} else { // either all are previous, or none is previous
-				var iCreatedByGPUProvisioner, jCreatedByGPUProvisioner bool
-				_, iCreatedByGPUProvisioner = qualified[i].Labels[consts.LabelGPUProvisionerCustom]
-				_, jCreatedByGPUProvisioner = qualified[j].Labels[consts.LabelGPUProvisionerCustom]
-				// Choose node created by gpu-provisioner and karpenter since it is more likely to be empty to use.
-				var iCreatedByKarpenter, jCreatedByKarpenter bool
-				_, iCreatedByKarpenter = qualified[i].Labels[consts.LabelNodePool]
-				_, jCreatedByKarpenter = qualified[j].Labels[consts.LabelNodePool]
-
-				if (iCreatedByGPUProvisioner && !jCreatedByGPUProvisioner) ||
-					(iCreatedByKarpenter && !jCreatedByKarpenter) {
-					return true
-				} else if (!iCreatedByGPUProvisioner && jCreatedByGPUProvisioner) ||
-					(!iCreatedByKarpenter && jCreatedByKarpenter) {
-					return false
-				} else {
-					return qualified[i].Name < qualified[j].Name
-				}
-			}
-		}
-	})
-
-	if len(qualified) <= count {
-		return qualified
-	}
-
-	return qualified[0:count]
+	_ = "STUB: not implemented"
+	return nil
 }
+
+// either all are preferred, or none is preferred
+
+// either all are previous, or none is previous
+
+// Choose node created by gpu-provisioner and karpenter since it is more likely to be empty to use.
 
 // ParseHuggingFaceModelVersion parses the model version in the format of https://huggingface.co/<org>/<model>/commit/<revision>
 // and returns the repoId and revision. If the commit is not specified, it returns an empty string for revision,
@@ -297,41 +156,19 @@ func SelectNodes(qualified []*corev1.Node, preferred []string, previous []string
 //	RepoId: "tiiuae/falcon-7b"
 //	Revision: "" (main branch HEAD commit is used)
 func ParseHuggingFaceModelVersion(version string) (repoId string, revision string, err error) {
-	parsedURL, err := url.Parse(version)
-	if err != nil {
-		return "", "", err
-	}
-
-	if parsedURL.Host != "huggingface.co" {
-		return "", "", fmt.Errorf(errInvalidModelVersionURL, version)
-	}
-
-	parts := strings.Split(strings.Trim(parsedURL.Path, "/"), "/")
-	switch len(parts) {
-	case 2: // Expected path: "<org>/<model>"
-		repoId, revision = parts[0]+"/"+parts[1], ""
-		return
-	case 4: // Expected path: "<org>/<model>/commit/<revision>"
-		if parts[2] != "commit" {
-			break
-		}
-		repoId, revision = parts[0]+"/"+parts[1], parts[3]
-		return
-	}
-
-	return "", "", fmt.Errorf(errInvalidModelVersionURL, version)
+	_ = "STUB: not implemented"
+	return "", "", nil
 }
+
+// Expected path: "<org>/<model>"
+
+// Expected path: "<org>/<model>/commit/<revision>"
 
 // getRayLeaderHost constructs the leader host for the Ray cluster.
-func GetRayLeaderHost(meta metav1.ObjectMeta) string {
-	return fmt.Sprintf("%s-0.%s-headless.%s.svc.cluster.local",
-		meta.Name, meta.Name, meta.Namespace)
-}
+func GetRayLeaderHost(meta metav1.ObjectMeta) string { _ = "STUB: not implemented"; return "" }
 
 // InferencePoolName returns the name of the inference pool for the given workspace.
-func InferencePoolName(workspaceName string) string {
-	return fmt.Sprintf("%s-inferencepool", workspaceName)
-}
+func InferencePoolName(workspaceName string) string { _ = "STUB: not implemented"; return "" }
 
 // ClientObjectSpecEqual compares the spec field of two client.Objects for equality.
 // For example:
@@ -344,21 +181,6 @@ func InferencePoolName(workspaceName string) string {
 //	d:   {"apiVersion": "apps/v1", "kind": "Deployment", "spec": {"replicas": 2}}
 //	result: false
 func ClientObjectSpecEqual(a, b client.Object) (bool, error) {
-	aUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(a)
-	if err != nil {
-		return false, err
-	}
-	bUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(b)
-	if err != nil {
-		return false, err
-	}
-	aSpec, aOK, err := unstructured.NestedMap(aUnstructured, "spec")
-	if err != nil {
-		return false, err
-	}
-	bSpec, bOK, err := unstructured.NestedMap(bUnstructured, "spec")
-	if err != nil {
-		return false, err
-	}
-	return aOK && bOK && equality.Semantic.DeepEqual(aSpec, bSpec), nil
+	_ = "STUB: not implemented"
+	return false, nil
 }

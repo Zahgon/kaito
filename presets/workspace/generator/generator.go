@@ -14,19 +14,7 @@
 package generator
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
-	"net/http"
-	"os"
 	"regexp"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
-
-	"gopkg.in/yaml.v2"
 
 	"github.com/kaito-project/kaito/pkg/model"
 )
@@ -263,69 +251,15 @@ type Generator struct {
 	ModelConfig   map[string]interface{}
 }
 
-func NewGenerator(modelRepo, token string) *Generator {
-	nameParts := strings.Split(modelRepo, "/")
-	modelNameSafe := strings.ToLower(nameParts[len(nameParts)-1])
+func NewGenerator(modelRepo, token string) *Generator { _ = "STUB: not implemented"; return nil }
 
-	gen := &Generator{
-		ModelRepo:     modelRepo,
-		Token:         token,
-		LoadFormat:    "auto",
-		ConfigFormat:  "auto",
-		TokenizerMode: "auto",
-	}
+// Initialize default PresetParam
 
-	// Initialize default PresetParam
-	gen.Param.Metadata.Name = modelNameSafe
-	gen.Param.Metadata.ModelType = "tfs"
-	gen.Param.Metadata.Version = fmt.Sprintf("%s/%s", HuggingFaceWebsite, modelRepo)
-	gen.Param.Metadata.DownloadAtRuntime = true
-	gen.Param.Metadata.DiskStorageRequirement = fmt.Sprintf("%dGi", SystemFileDiskSizeGiB)
-	gen.Param.Metadata.ModelFileSize = "0Gi"
-
-	return gen
-}
-
-func (g *Generator) getAuthHeader() string {
-	if g.Token != "" {
-		return "Bearer " + g.Token
-	}
-	if envToken := os.Getenv("HF_TOKEN"); envToken != "" {
-		return "Bearer " + envToken
-	}
-	return ""
-}
+func (g *Generator) getAuthHeader() string { _ = "STUB: not implemented"; return "" }
 
 func (g *Generator) fetchURL(url string) ([]byte, error) {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	auth := g.getAuthHeader()
-	if auth != "" {
-		req.Header.Set("Authorization", auth)
-	}
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 401 || resp.StatusCode == 403 {
-		g.Param.Metadata.DownloadAuthRequired = true
-		if auth == "" {
-			return nil, fmt.Errorf("authentication required for accessing %s", url)
-		}
-	}
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("failed to fetch %s: status %d", url, resp.StatusCode)
-	}
-
-	return io.ReadAll(resp.Body)
+	_ = "STUB: not implemented"
+	return nil, nil
 }
 
 type FileInfo struct {
@@ -334,46 +268,10 @@ type FileInfo struct {
 	Type string `json:"type"`
 }
 
-func (g *Generator) FetchModelMetadata() error {
-	files, err := g.listRepoFiles()
-	if err != nil {
-		return err
-	}
-
-	selectedFiles := g.selectWeightFiles(files)
-	if len(selectedFiles) == 0 {
-		return fmt.Errorf("no .safetensors or .bin files found")
-	}
-
-	if g.IsMistralModel {
-		g.setMistralMode()
-	}
-
-	g.Param.Metadata.ModelFileSize = calculateModelFileSize(selectedFiles)
-	g.Param.VLLM.ModelRunParams = make(map[string]string)
-
-	if err := g.fetchAndParseConfig(); err != nil {
-		return err
-	}
-
-	g.mergeTextConfig()
-	return nil
-}
+func (g *Generator) FetchModelMetadata() error { _ = "STUB: not implemented"; return nil }
 
 // listRepoFiles fetches the full file tree for the model repo from HuggingFace.
-func (g *Generator) listRepoFiles() ([]FileInfo, error) {
-	url := fmt.Sprintf("%s/api/models/%s/tree/main?recursive=true", HuggingFaceWebsite, g.ModelRepo)
-	body, err := g.fetchURL(url)
-	if err != nil {
-		return nil, fmt.Errorf("error listing files: %v", err)
-	}
-
-	var files []FileInfo
-	if err := json.Unmarshal(body, &files); err != nil {
-		return nil, fmt.Errorf("error parsing file list: %v", err)
-	}
-	return files, nil
-}
+func (g *Generator) listRepoFiles() ([]FileInfo, error) { _ = "STUB: not implemented"; return nil, nil }
 
 // selectWeightFiles picks the model weight files to use and detects whether
 // the model uses Mistral format. For Mistral-format models (those with
@@ -381,65 +279,21 @@ func (g *Generator) listRepoFiles() ([]FileInfo, error) {
 // consolidated files. For standard models, it prefers .safetensors over .bin
 // when both are present.
 func (g *Generator) selectWeightFiles(files []FileInfo) []FileInfo {
-	var safetensors, bins, mistral []FileInfo
-
-	for _, f := range files {
-		if mistralRegex.MatchString(f.Path) {
-			mistral = append(mistral, f)
-		}
-		if safetensorRegex.MatchString(f.Path) {
-			safetensors = append(safetensors, f)
-		} else if binRegex.MatchString(f.Path) {
-			bins = append(bins, f)
-		}
-	}
-
-	if len(mistral) > 0 {
-		g.IsMistralModel = true
-		return mistral
-	}
-
-	// Prefer safetensors over bin files when both exist.
-	if len(safetensors) > 0 {
-		return safetensors
-	}
-	return bins
+	_ = "STUB: not implemented"
+	return nil
 }
 
-func (g *Generator) setMistralMode() {
-	g.LoadFormat = "mistral"
-	g.ConfigFormat = "mistral"
-	g.TokenizerMode = "mistral"
-}
+// Prefer safetensors over bin files when both exist.
 
-func calculateModelFileSize(files []FileInfo) string {
-	var totalBytes int64
-	for _, f := range files {
-		totalBytes += f.Size
-	}
-	sizeGiB := float64(totalBytes) / (1024 * 1024 * 1024)
-	return fmt.Sprintf("%.2fGi", sizeGiB)
-}
+func (g *Generator) setMistralMode() { _ = "STUB: not implemented"; return }
+
+func calculateModelFileSize(files []FileInfo) string { _ = "STUB: not implemented"; return "" }
 
 // fetchAndParseConfig downloads and parses the model's config.json. For
 // Mistral-format models, it falls back to params.json if config.json is absent.
-func (g *Generator) fetchAndParseConfig() error {
-	configBody, err := g.fetchConfigFile("config.json")
-	if err != nil && g.IsMistralModel {
-		// config.json not available; fall back to params.json (Mistral native format).
-		configBody, err = g.fetchConfigFile("params.json")
-	}
-	if err != nil {
-		return fmt.Errorf("error fetching config: %v", err)
-	}
+func (g *Generator) fetchAndParseConfig() error { _ = "STUB: not implemented"; return nil }
 
-	configBody = sanitizeJSON(configBody)
-
-	if err := json.Unmarshal(configBody, &g.ModelConfig); err != nil {
-		return fmt.Errorf("error parsing config: %v", err)
-	}
-	return nil
-}
+// config.json not available; fall back to params.json (Mistral native format).
 
 // vLLM delegates the loading of config.json to HuggingFace transformer library
 // (https://github.com/huggingface/transformers/blob/main/src/transformers/configuration_utils.py#L552).
@@ -447,369 +301,106 @@ func (g *Generator) fetchAndParseConfig() error {
 // However, Go's standard library encoding/json only supports standard JSON values. sanitizeJSON replaces
 // non-standard JSON literals (Infinity, -Infinity, NaN) with null so the data can be parsed by encoding/json.
 func sanitizeJSON(data []byte) []byte {
+	_ = "STUB: not implemented"
 	// Replace standalone Infinity, -Infinity, NaN with null
-	re := regexp.MustCompile(`(?:(?:^|[,\[:\s])\s*)-?Infinity|(?:(?:^|[,\[:\s])\s*)NaN`)
-	return re.ReplaceAllFunc(data, func(match []byte) []byte {
-		// Preserve the prefix (comma, bracket, colon, whitespace) before the value
-		trimmed := strings.TrimLeft(string(match), " \t\n\r,[:") //nolint:gocritic
-		prefix := string(match[:len(match)-len(trimmed)])
-		return []byte(prefix + "null")
-	})
+	return nil
 }
 
+// Preserve the prefix (comma, bracket, colon, whitespace) before the value
+//nolint:gocritic
+
 func (g *Generator) fetchConfigFile(name string) ([]byte, error) {
-	url := fmt.Sprintf("%s/%s/resolve/main/%s", HuggingFaceWebsite, g.ModelRepo, name)
-	return g.fetchURL(url)
+	_ = "STUB: not implemented"
+	return nil, nil
 }
 
 // mergeTextConfig promotes fields from a nested "text_config" or "llm_config"
 // object into the top-level config. This is needed for multimodal models
 // (e.g., Gemma-3, Ministral-3, Nemotron-VL) where architecture-specific
 // parameters live under a nested config key.
-func (g *Generator) mergeTextConfig() {
-	var nested map[string]interface{}
-	if tc, ok := g.ModelConfig["text_config"].(map[string]interface{}); ok {
-		nested = tc
-	} else if lc, ok := g.ModelConfig["llm_config"].(map[string]interface{}); ok {
-		nested = lc
-	}
-	if nested == nil {
-		return
-	}
-	for k, v := range nested {
-		if _, exists := g.ModelConfig[k]; !exists {
-			g.ModelConfig[k] = v
-		}
-	}
-}
+func (g *Generator) mergeTextConfig() { _ = "STUB: not implemented"; return }
 
 func getInt(config map[string]interface{}, keys []string, defaultVal int) int {
-	for _, key := range keys {
-		if val, ok := config[key]; ok {
-			switch v := val.(type) {
-			case float64:
-				return int(v)
-			case int:
-				return v
-			case string:
-				if i, err := strconv.Atoi(v); err == nil {
-					return i
-				}
-			}
-		}
-	}
-	return defaultVal
+	_ = "STUB: not implemented"
+	return 0
 }
 
 // getString looks up the first matching key in config that has a non-empty
 // string value. Keys are tried in order; the first hit wins.
 func getString(config map[string]interface{}, keys []string) string {
-	for _, key := range keys {
-		if val, ok := config[key].(string); ok && val != "" {
-			return val
-		}
-	}
+	_ = "STUB: not implemented"
 	return ""
 }
 
-func (g *Generator) ParseModelMetadata() {
-	maxPos := getInt(g.ModelConfig, configKeyMap["modelTokenLimit"], DefaultModelTokenLimit)
+func (g *Generator) ParseModelMetadata() { _ = "STUB: not implemented"; return }
 
-	g.Param.Metadata.ModelTokenLimit = maxPos
+// Override architectures for specific model families only when none were parsed
 
-	g.Param.Metadata.Architectures = []string{}
-	if arch, ok := g.ModelConfig["architectures"].([]interface{}); ok {
-		for _, a := range arch {
-			if archStr, ok := a.(string); ok {
-				g.Param.Metadata.Architectures = append(g.Param.Metadata.Architectures, archStr)
-			}
-		}
-	}
+// set reasoning parser based on model name prefix
 
-	// Override architectures for specific model families only when none were parsed
-	if len(g.Param.Metadata.Architectures) == 0 {
-		if strings.HasPrefix(g.Param.Metadata.Name, "mistral-large-3") {
-			g.Param.Metadata.Architectures = []string{"MistralLarge3ForCausalLM"}
-		} else if strings.HasPrefix(g.Param.Metadata.Name, "ministral-3") {
-			g.Param.Metadata.Architectures = []string{"Mistral3ForConditionalGeneration"}
-		}
-	}
+// set reasoning parser based on model architecture if not set by name prefix
 
-	// set reasoning parser based on model name prefix
-	for prefix, parser := range reasoningParserModeNamePrefixMap {
-		if strings.HasPrefix(g.Param.Metadata.Name, prefix) {
-			g.Param.Metadata.ReasoningParser = parser
-			break
-		}
-	}
+// set ToolCallParser based on model name prefix
+// sort the keys of toolCallParserModeNamePrefixMap in reverse alphabetical order and then iterate
+// this is to ensure that longer (more specific) prefixes are matched first
 
-	// set reasoning parser based on model architecture if not set by name prefix
-	if g.Param.Metadata.ReasoningParser == "" {
-		for _, arch := range g.Param.Metadata.Architectures {
-			if parser, ok := reasoningParserArchMap[arch]; ok {
-				g.Param.Metadata.ReasoningParser = parser
-				break
-			}
-		}
-	}
+// set ToolCallParser based on model architecture if not set by name prefix
 
-	// set ToolCallParser based on model name prefix
-	// sort the keys of toolCallParserModeNamePrefixMap in reverse alphabetical order and then iterate
-	// this is to ensure that longer (more specific) prefixes are matched first
-	prefixes := make([]string, 0, len(toolCallParserModeNamePrefixMap))
-	for prefix := range toolCallParserModeNamePrefixMap {
-		prefixes = append(prefixes, prefix)
-	}
-	sort.Sort(sort.Reverse(sort.StringSlice(prefixes)))
+// set ChatTemplate based on model name prefix
 
-	for _, prefix := range prefixes {
-		if strings.HasPrefix(g.Param.Metadata.Name, prefix) {
-			g.Param.Metadata.ToolCallParser = toolCallParserModeNamePrefixMap[prefix]
-			break
-		}
-	}
+// Parse quantization config (e.g., AWQ, GPTQ) from HuggingFace config.json.
 
-	// set ToolCallParser based on model architecture if not set by name prefix
-	if g.Param.Metadata.ToolCallParser == "" {
-		for _, arch := range g.Param.Metadata.Architectures {
-			if parser, ok := toolCallParserArchMap[arch]; ok {
-				g.Param.Metadata.ToolCallParser = parser
-				break
-			}
-		}
-	}
-
-	// set ChatTemplate based on model name prefix
-	for prefix, template := range chatTemplatePrefixMap {
-		if strings.HasPrefix(g.Param.Metadata.Name, prefix) {
-			g.Param.Metadata.ChatTemplate = template
-			break
-		}
-	}
-
-	// Parse quantization config (e.g., AWQ, GPTQ) from HuggingFace config.json.
-	if qc, ok := g.ModelConfig["quantization_config"].(map[string]interface{}); ok {
-		if qm, ok := qc["quant_method"].(string); ok {
-			g.Param.Metadata.QuantMethod = qm
-		}
-		g.Param.Metadata.QuantBits = getInt(qc, []string{"bits"}, 0)
-	}
-}
-
-func (g *Generator) calculateStorageSize() string {
-	szStr := strings.TrimSuffix(g.Param.Metadata.ModelFileSize, "Gi")
-	sz, _ := strconv.ParseFloat(szStr, 64)
-	req := int(sz + SystemFileDiskSizeGiB)
-	return fmt.Sprintf("%dGi", req)
-}
+func (g *Generator) calculateStorageSize() string { _ = "STUB: not implemented"; return "" }
 
 func (g *Generator) calculateKVCacheTokenSize() (int, string) {
-	config := g.ModelConfig
-
-	hiddenSize := getInt(config, configKeyMap["hiddenSize"], 0)
-	hiddenLayers := getInt(config, configKeyMap["numHiddenLayers"], 0)
-	attentionHeads := getInt(config, configKeyMap["numAttentionHeads"], 0)
-	kvHeads := getInt(config, configKeyMap["numKeyValueHeads"], 0)
-	headDim := getInt(config, optionalKeyMap["headDim"], 0)
-
-	if headDim == 0 && attentionHeads > 0 {
-		headDim = hiddenSize / attentionHeads
-	}
-
-	// DeepSeek MLA
-	kvLoraRank := getInt(config, optionalKeyMap["kvLoraRank"], -1)
-	qkRopeHeadDim := getInt(config, optionalKeyMap["qkRopeHeadDim"], 0)
-
-	// Fallback KV heads
-	if kvHeads == 0 && attentionHeads > 0 {
-		if mq, ok := config["multi_query"].(bool); ok && mq {
-			kvHeads = 1
-		} else {
-			kvHeads = attentionHeads
-		}
-	}
-
-	attnType := "Unknown"
-	elementsPerToken := 0
-
-	if kvLoraRank != -1 {
-		attnType = "MLA"
-		elementsPerToken = kvLoraRank + qkRopeHeadDim
-	} else if attentionHeads > 0 && kvHeads > 0 && headDim > 0 {
-		elementsPerToken = 2 * kvHeads * headDim
-
-		if attentionHeads == kvHeads {
-			attnType = "MHA"
-		} else if kvHeads == 1 {
-			attnType = "MQA"
-		} else {
-			attnType = "GQA"
-		}
-	}
-
-	totalElements := elementsPerToken * hiddenLayers
-	// TODO: honor kv-cache quantization instead of hardcoding fp16
-	tokenSize := totalElements * 2 // fp16
-
-	return tokenSize, attnType
+	_ = "STUB: not implemented"
+	return 0, ""
 }
 
-func (g *Generator) FinalizeParams() {
-	g.Param.Metadata.DiskStorageRequirement = g.calculateStorageSize()
+// DeepSeek MLA
 
-	// VLLM Params
-	if g.Param.VLLM.ModelRunParams == nil {
-		g.Param.VLLM.ModelRunParams = make(map[string]string)
-	}
-	g.Param.VLLM.ModelName = g.Param.Name
-	g.Param.VLLM.ModelRunParams["load_format"] = g.LoadFormat
-	g.Param.VLLM.ModelRunParams["config_format"] = g.ConfigFormat
-	g.Param.VLLM.ModelRunParams["tokenizer_mode"] = g.TokenizerMode
+// Fallback KV heads
 
-	// Override tokenizer mode based on model name prefix
-	for prefix, mode := range tokenizerModePrefixMap {
-		if strings.HasPrefix(g.Param.Metadata.Name, prefix) {
-			g.Param.VLLM.ModelRunParams["tokenizer_mode"] = mode
-			break
-		}
-	}
+// TODO: honor kv-cache quantization instead of hardcoding fp16
+// fp16
 
-	// Set attention backend based on model name prefix
-	for prefix, backend := range vllmAttentionBackendPrefixMap {
-		if strings.HasPrefix(g.Param.Metadata.Name, prefix) {
-			g.Param.VLLM.ModelRunParams["attention-backend"] = backend
-			break
-		}
-	}
+func (g *Generator) FinalizeParams() { _ = "STUB: not implemented"; return }
 
-	// Set MoE backend based on exact model name match
-	if backend, ok := vllmMoeBackendOverride[g.Param.Metadata.Name]; ok {
-		g.Param.VLLM.ModelRunParams["moe-backend"] = backend
-	}
+// VLLM Params
 
-	// Set GDN prefill backend based on model name prefix
-	for prefix, backend := range vllmGdnPrefillBackendPrefixMap {
-		if strings.HasPrefix(g.Param.Metadata.Name, prefix) {
-			g.Param.VLLM.ModelRunParams["gdn-prefill-backend"] = backend
-			break
-		}
-	}
+// Override tokenizer mode based on model name prefix
 
-	// Enable expert parallelism based on model name prefix
-	for prefix, enabled := range vllmExpertParallelEnabled {
-		if strings.HasPrefix(g.Param.Metadata.Name, prefix) && enabled {
-			g.Param.VLLM.ModelRunParams["enable-expert-parallel"] = ""
-			break
-		}
-	}
+// Set attention backend based on model name prefix
 
-	bpt, attnType := g.calculateKVCacheTokenSize()
-	g.Param.Metadata.BytesPerToken = bpt
-	g.Param.AttnType = attnType
-}
+// Set MoE backend based on exact model name match
+
+// Set GDN prefill backend based on model name prefix
+
+// Enable expert parallelism based on model name prefix
 
 // loadFromCatalog checks whether the model repo exists in the embedded catalog.
 // If found, it populates the generator's ModelConfig and Param fields from the
 // catalog entry, avoiding any HuggingFace API calls.
-func (g *Generator) loadFromCatalog() bool {
-	if len(g.CatalogData) == 0 {
-		return false
-	}
+func (g *Generator) loadFromCatalog() bool { _ = "STUB: not implemented"; return false }
 
-	catalog := ModelCatalog{}
-	if err := yaml.Unmarshal(g.CatalogData, &catalog); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to unmarshal model catalog for %q: %v\n", g.ModelRepo, err)
-		return false
-	}
+// Populate ModelConfig from catalog entry so existing calculation
+// functions (ParseModelMetadata, FinalizeParams) work unchanged.
 
-	var entry *CatalogEntry
-	for i, m := range catalog.Models {
-		if strings.EqualFold(m.Name, g.ModelRepo) {
-			entry = &catalog.Models[i]
-			break
-		}
-	}
-	if entry == nil {
-		return false
-	}
+// Restore quantization_config so ParseModelMetadata can pick it up.
 
-	// Populate ModelConfig from catalog entry so existing calculation
-	// functions (ParseModelMetadata, FinalizeParams) work unchanged.
-	g.ModelConfig = map[string]interface{}{
-		"hidden_size":             entry.HiddenSize,
-		"num_hidden_layers":       entry.NumHiddenLayers,
-		"num_attention_heads":     entry.NumAttentionHeads,
-		"num_key_value_heads":     entry.NumKeyValueHeads,
-		"max_position_embeddings": entry.ModelTokenLimit,
-	}
-	if entry.HeadDim > 0 {
-		g.ModelConfig["head_dim"] = entry.HeadDim
-	}
-	if entry.KVLoraRank > 0 {
-		g.ModelConfig["kv_lora_rank"] = entry.KVLoraRank
-	}
-	if entry.QKRopeHeadDim > 0 {
-		g.ModelConfig["qk_rope_head_dim"] = entry.QKRopeHeadDim
-	}
+// Set architectures in config for ParseModelMetadata to pick up
 
-	// Restore quantization_config so ParseModelMetadata can pick it up.
-	if entry.QuantMethod != "" {
-		g.ModelConfig["quantization_config"] = map[string]interface{}{
-			"quant_method": entry.QuantMethod,
-			"bits":         entry.QuantBits,
-		}
-	}
-
-	// Set architectures in config for ParseModelMetadata to pick up
-	archInterfaces := make([]interface{}, len(entry.Architectures))
-	for i, a := range entry.Architectures {
-		archInterfaces[i] = a
-	}
-	g.ModelConfig["architectures"] = archInterfaces
-
-	// Populate fields that FetchModelMetadata would have set
-	g.Param.Metadata.ModelFileSize = entry.ModelFileSize
-	g.Param.VLLM.ModelRunParams = make(map[string]string)
-
-	if entry.LoadFormat != "" {
-		g.LoadFormat = entry.LoadFormat
-	}
-	if entry.ConfigFormat != "" {
-		g.ConfigFormat = entry.ConfigFormat
-	} else if entry.LoadFormat != "" {
-		g.ConfigFormat = entry.LoadFormat
-	}
-	if entry.TokenizerMode != "" {
-		g.TokenizerMode = entry.TokenizerMode
-	} else if entry.LoadFormat != "" {
-		g.TokenizerMode = entry.LoadFormat
-	}
-
-	return true
-}
+// Populate fields that FetchModelMetadata would have set
 
 func (g *Generator) Generate() (*model.PresetParam, error) {
-	if !g.loadFromCatalog() {
-		if err := g.FetchModelMetadata(); err != nil {
-			return nil, err
-		}
-	}
-	g.ParseModelMetadata()
-	g.FinalizeParams()
-
-	return &g.Param, nil
+	_ = "STUB: not implemented"
+	return nil, nil
 }
 
 // GeneratePreset is the global function to generate preset param.
 // If catalogData is provided, the generator will check for the model in the
 // catalog before making any HuggingFace API calls.
 func GeneratePreset(modelRepo, token string, catalogData ...[]byte) (*model.PresetParam, error) {
-	if modelRepo == "" {
-		return nil, errors.New("model repo is required")
-	}
-	gen := NewGenerator(modelRepo, token)
-	if len(catalogData) > 0 {
-		gen.CatalogData = catalogData[0]
-	}
-	return gen.Generate()
+	_ = "STUB: not implemented"
+	return nil, nil
 }

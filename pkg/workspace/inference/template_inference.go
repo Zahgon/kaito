@@ -19,15 +19,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kaitov1beta1 "github.com/kaito-project/kaito/api/v1beta1"
-	"github.com/kaito-project/kaito/pkg/utils/resources"
-	"github.com/kaito-project/kaito/pkg/workspace/manifests"
 )
 
 func CreateTemplateInference(ctx context.Context, workspaceObj *kaitov1beta1.Workspace, kubeClient client.Client) (client.Object, error) {
-	depObj := manifests.GenerateManifestWithPodTemplate(workspaceObj, defaultTolerations(workspaceObj))
-	err := resources.CreateResource(ctx, client.Object(depObj), kubeClient)
-	if client.IgnoreAlreadyExists(err) != nil {
-		return nil, err
-	}
-	return depObj, nil
+	_ = "STUB: not implemented"
+	return *new(client.Object), nil
 }

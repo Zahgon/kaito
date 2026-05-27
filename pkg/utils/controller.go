@@ -34,12 +34,10 @@ package utils
 
 import (
 	"fmt"
-	"sync/atomic"
 	"time"
 
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/clock"
 )
 
 const (
@@ -104,109 +102,86 @@ type ControllerExpectations struct {
 
 // GetExpectations returns the ControlleeExpectations of the given controller.
 func (r *ControllerExpectations) GetExpectations(controllerKey string) (*ControlleeExpectations, bool, error) {
-	exp, exists, err := r.GetByKey(controllerKey)
-	if err == nil && exists {
-		return exp.(*ControlleeExpectations), true, nil
-	}
-	return nil, false, err
+	_ = "STUB: not implemented"
+	return nil, false, nil
 }
 
 // DeleteExpectations deletes the expectations of the given controller from the TTLStore.
 func (r *ControllerExpectations) DeleteExpectations(logger klog.Logger, controllerKey string) {
-	if exp, exists, err := r.GetByKey(controllerKey); err == nil && exists {
-		if err := r.Delete(exp); err != nil {
-
-			logger.V(2).Info("Error deleting expectations", "controller", controllerKey, "err", err)
-		}
-	}
+	_ = "STUB: not implemented"
+	return
 }
 
 // SatisfiedExpectations returns true if the required adds/dels for the given controller have been observed.
 // Add/del counts are established by the controller at sync time, and updated as controllees are observed by the controller
 // manager.
 func (r *ControllerExpectations) SatisfiedExpectations(logger klog.Logger, controllerKey string) bool {
-	if exp, exists, err := r.GetExpectations(controllerKey); exists {
-		if exp.Fulfilled() {
-			logger.V(4).Info("Controller expectations fulfilled", "expectations", exp)
-			return true
-		} else if exp.isExpired() {
-			logger.V(4).Info("Controller expectations expired", "expectations", exp)
-			return true
-		} else {
-			logger.V(4).Info("Controller still waiting on expectations", "expectations", exp)
-			return false
-		}
-	} else if err != nil {
-		logger.V(2).Info("Error encountered while checking expectations, forcing sync", "err", err)
-	} else {
-		// When a new controller is created, it doesn't have expectations.
-		// When it doesn't see expected watch events for > TTL, the expectations expire.
-		//	- In this case it wakes up, creates/deletes controllees, and sets expectations again.
-		// When it has satisfied expectations and no controllees need to be created/destroyed > TTL, the expectations expire.
-		//	- In this case it continues without setting expectations till it needs to create/delete controllees.
-		logger.V(4).Info("Controller either never recorded expectations, or the ttl expired", "controller", controllerKey)
-	}
-	// Trigger a sync if we either encountered and error (which shouldn't happen since we're
-	// getting from local store) or this controller hasn't established expectations.
-	return true
+	_ = "STUB: not implemented"
+	return false
 }
+
+// When a new controller is created, it doesn't have expectations.
+// When it doesn't see expected watch events for > TTL, the expectations expire.
+//	- In this case it wakes up, creates/deletes controllees, and sets expectations again.
+// When it has satisfied expectations and no controllees need to be created/destroyed > TTL, the expectations expire.
+//	- In this case it continues without setting expectations till it needs to create/delete controllees.
+
+// Trigger a sync if we either encountered and error (which shouldn't happen since we're
+// getting from local store) or this controller hasn't established expectations.
 
 // GetExpectationStartTime returns the time when the expectations for the given controller were set.
 func (r *ControllerExpectations) GetExpectationStartTime(controllerKey string) *time.Time {
-	if exp, exists, _ := r.GetExpectations(controllerKey); exists {
-		return &exp.timestamp
-	}
+	_ = "STUB: not implemented"
 	return nil
 }
 
 // TODO: Extend ExpirationCache to support explicit expiration.
 // TODO: Make this possible to disable in tests.
 // TODO: Support injection of clock.
-func (exp *ControlleeExpectations) isExpired() bool {
-	return clock.RealClock{}.Since(exp.timestamp) > ExpectationsTimeout
-}
+func (exp *ControlleeExpectations) isExpired() bool { _ = "STUB: not implemented"; return false }
 
 // SetExpectations registers new expectations for the given controller. Forgets existing expectations.
 func (r *ControllerExpectations) SetExpectations(logger klog.Logger, controllerKey string, add, del int) error {
-	exp := &ControlleeExpectations{add: int64(add), del: int64(del), key: controllerKey, timestamp: clock.RealClock{}.Now()}
-	logger.V(4).Info("Setting expectations", "expectations", exp)
-	return r.Add(exp)
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func (r *ControllerExpectations) ExpectCreations(logger klog.Logger, controllerKey string, adds int) error {
-	return r.SetExpectations(logger, controllerKey, adds, 0)
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func (r *ControllerExpectations) ExpectDeletions(logger klog.Logger, controllerKey string, dels int) error {
-	return r.SetExpectations(logger, controllerKey, 0, dels)
+	_ = "STUB: not implemented"
+	return nil
 }
 
 // Decrements the expectation counts of the given controller.
 func (r *ControllerExpectations) LowerExpectations(logger klog.Logger, controllerKey string, add, del int) {
-	if exp, exists, err := r.GetExpectations(controllerKey); err == nil && exists {
-		exp.Add(int64(-add), int64(-del))
-		// The expectations might've been modified since the update on the previous line.
-		logger.V(4).Info("Lowered expectations", "expectations", exp)
-	}
+	_ = "STUB: not implemented"
+	return
 }
+
+// The expectations might've been modified since the update on the previous line.
 
 // Increments the expectation counts of the given controller.
 func (r *ControllerExpectations) RaiseExpectations(logger klog.Logger, controllerKey string, add, del int) {
-	if exp, exists, err := r.GetExpectations(controllerKey); err == nil && exists {
-		exp.Add(int64(add), int64(del))
-		// The expectations might've been modified since the update on the previous line.
-		logger.V(4).Info("Raised expectations", "expectations", exp)
-	}
+	_ = "STUB: not implemented"
+	return
 }
+
+// The expectations might've been modified since the update on the previous line.
 
 // CreationObserved atomically decrements the `add` expectation count of the given controller.
 func (r *ControllerExpectations) CreationObserved(logger klog.Logger, controllerKey string) {
-	r.LowerExpectations(logger, controllerKey, 1, 0)
+	_ = "STUB: not implemented"
+	return
 }
 
 // DeletionObserved atomically decrements the `del` expectation count of the given controller.
 func (r *ControllerExpectations) DeletionObserved(logger klog.Logger, controllerKey string) {
-	r.LowerExpectations(logger, controllerKey, 0, 1)
+	_ = "STUB: not implemented"
+	return
 }
 
 // ControlleeExpectations track controllee creates/deletes.
@@ -220,23 +195,20 @@ type ControlleeExpectations struct {
 }
 
 // Add increments the add and del counters.
-func (e *ControlleeExpectations) Add(add, del int64) {
-	atomic.AddInt64(&e.add, add)
-	atomic.AddInt64(&e.del, del)
-}
+func (e *ControlleeExpectations) Add(add, del int64) { _ = "STUB: not implemented"; return }
 
 // Fulfilled returns true if this expectation has been fulfilled.
 func (e *ControlleeExpectations) Fulfilled() bool {
+	_ = "STUB: not implemented"
 	// TODO: think about why this line being atomic doesn't matter
-	return atomic.LoadInt64(&e.add) <= 0 && atomic.LoadInt64(&e.del) <= 0
+	return false
 }
 
 // GetExpectations returns the add and del expectations of the controllee.
 func (e *ControlleeExpectations) GetExpectations() (int64, int64) {
-	return atomic.LoadInt64(&e.add), atomic.LoadInt64(&e.del)
+	_ = "STUB: not implemented"
+	return 0, 0
 }
 
 // NewControllerExpectations returns a store for ControllerExpectations.
-func NewControllerExpectations() *ControllerExpectations {
-	return &ControllerExpectations{cache.NewStore(ExpKeyFunc)}
-}
+func NewControllerExpectations() *ControllerExpectations { _ = "STUB: not implemented"; return nil }

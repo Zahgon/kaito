@@ -15,28 +15,11 @@ package utils
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // EnsureKindExists checks if a specific GroupVersionKind (GVK) exists in the cluster.
 func EnsureKindExists(restConfig *rest.Config, gvk schema.GroupVersionKind) (bool, error) {
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
-	if err != nil {
-		return false, err
-	}
-
-	resources, err := discoveryClient.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
-	if client.IgnoreNotFound(err) != nil {
-		return false, err
-	}
-
-	for _, r := range resources.APIResources {
-		if r.Kind == gvk.Kind {
-			return true, nil
-		}
-	}
-
+	_ = "STUB: not implemented"
 	return false, nil
 }

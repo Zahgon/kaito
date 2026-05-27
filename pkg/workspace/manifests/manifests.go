@@ -15,390 +15,112 @@ package manifests
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"path"
 
 	helmv2 "github.com/fluxcd/helm-controller/api/v2"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
-	"github.com/samber/lo"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
 
 	kaitov1alpha1 "github.com/kaito-project/kaito/api/v1alpha1"
 	kaitov1beta1 "github.com/kaito-project/kaito/api/v1beta1"
-	"github.com/kaito-project/kaito/pkg/featuregates"
 	pkgmodel "github.com/kaito-project/kaito/pkg/model"
-	"github.com/kaito-project/kaito/pkg/utils"
-	"github.com/kaito-project/kaito/pkg/utils/consts"
 	"github.com/kaito-project/kaito/pkg/utils/generator"
-	"github.com/kaito-project/kaito/pkg/workspace/image"
 )
 
 func GenerateHeadlessServiceManifest(workspaceObj *kaitov1beta1.Workspace) *corev1.Service {
-	serviceName := fmt.Sprintf("%s-headless", workspaceObj.Name)
-	selector := map[string]string{
-		kaitov1beta1.LabelWorkspaceName: workspaceObj.Name,
-	}
-
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceName,
-			Namespace: workspaceObj.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(workspaceObj, kaitov1beta1.GroupVersion.WithKind("Workspace")),
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Selector:                 selector,
-			ClusterIP:                "None",
-			Ports:                    []corev1.ServicePort{},
-			PublishNotReadyAddresses: true,
-		},
-	}
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func GenerateServiceManifest(workspaceObj *kaitov1beta1.Workspace, serviceType corev1.ServiceType) *corev1.Service {
-	selector := map[string]string{
-		kaitov1beta1.LabelWorkspaceName: workspaceObj.Name,
-	}
-	// select the pod with index 0 as the endpoint
-	podNameForIndex0 := fmt.Sprintf("%s-0", workspaceObj.Name)
-	selector["statefulset.kubernetes.io/pod-name"] = podNameForIndex0
-
-	// When the routing sidecar is present (decode role + vLLM), route
-	// external traffic through the sidecar port so that all requests
-	// pass through the routing layer. Kubelet container probes still
-	// hit vLLM directly on PortInferenceServer (via PodIP), while
-	// Service/Gateway traffic routes to the sidecar on PortRoutingSidecar.
-	httpTargetPort := consts.PortInferenceServer
-	role, hasRole := workspaceObj.Labels[kaitov1beta1.LabelInferenceRole]
-	if hasRole && role == string(kaitov1alpha1.MultiRoleInferenceRoleDecode) && kaitov1beta1.GetWorkspaceRuntimeName(workspaceObj) == pkgmodel.RuntimeNameVLLM {
-		httpTargetPort = consts.PortRoutingSidecar
-	}
-
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      workspaceObj.Name,
-			Namespace: workspaceObj.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(workspaceObj, kaitov1beta1.GroupVersion.WithKind("Workspace")),
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Type: serviceType,
-			Ports: []corev1.ServicePort{
-				// HTTP API Port
-				{
-					Name:       "http",
-					Protocol:   corev1.ProtocolTCP,
-					Port:       80,
-					TargetPort: intstr.FromInt32(httpTargetPort),
-				},
-				{
-					Name:       "ray",
-					Protocol:   corev1.ProtocolTCP,
-					Port:       6379,
-					TargetPort: intstr.FromInt32(6379),
-				},
-				{
-					Name:       "dashboard",
-					Protocol:   corev1.ProtocolTCP,
-					Port:       8265,
-					TargetPort: intstr.FromInt32(8265),
-				},
-			},
-			Selector: selector,
-			// Added this to allow pods to discover each other
-			// (DNS Resolution) During their initialization phase
-			PublishNotReadyAddresses: true,
-		},
-	}
+	_ = "STUB: not implemented"
+	return nil
 }
+
+// select the pod with index 0 as the endpoint
+
+// When the routing sidecar is present (decode role + vLLM), route
+// external traffic through the sidecar port so that all requests
+// pass through the routing layer. Kubelet container probes still
+// hit vLLM directly on PortInferenceServer (via PodIP), while
+// Service/Gateway traffic routes to the sidecar on PortRoutingSidecar.
+
+// HTTP API Port
+
+// Added this to allow pods to discover each other
+// (DNS Resolution) During their initialization phase
 
 func GenerateStatefulSetManifest(revisionNum string, replicas int) func(*generator.WorkspaceGeneratorContext, *appsv1.StatefulSet) error {
-	return func(ctx *generator.WorkspaceGeneratorContext, ss *appsv1.StatefulSet) error {
-		selector := map[string]string{
-			kaitov1beta1.LabelWorkspaceName: ctx.Workspace.Name,
-		}
-		// if workspaceObj.Labels contains "inferenceset.kaito.sh/created-by", add it to selector for VPA/HPA purpose
-		if ctx.Workspace.Labels != nil {
-			if createdBy, exists := ctx.Workspace.Labels[consts.WorkspaceCreatedByInferenceSetLabel]; exists {
-				klog.Infof("Adding label %s=%s to statefulset selector", consts.WorkspaceCreatedByInferenceSetLabel, createdBy)
-				selector[consts.WorkspaceCreatedByInferenceSetLabel] = createdBy
-			}
-			// Propagate MRI parent and inference-role labels to pod templates for InferencePool endpoint selection.
-			if parent, exists := ctx.Workspace.Labels[kaitov1alpha1.LabelMultiRoleInferenceParent]; exists {
-				selector[kaitov1alpha1.LabelMultiRoleInferenceParent] = parent
-			}
-			if role, exists := ctx.Workspace.Labels[kaitov1alpha1.LabelInferenceRole]; exists {
-				selector[kaitov1alpha1.LabelInferenceRole] = role
-			}
-		}
-		labelselector := &metav1.LabelSelector{
-			MatchLabels: selector,
-		}
-
-		ss.ObjectMeta = metav1.ObjectMeta{
-			Name:      ctx.Workspace.Name,
-			Namespace: ctx.Workspace.Namespace,
-			Annotations: map[string]string{
-				kaitov1beta1.WorkspaceRevisionAnnotation: revisionNum,
-			},
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(ctx.Workspace, kaitov1beta1.GroupVersion.WithKind("Workspace")),
-			},
-		}
-		ss.Spec = appsv1.StatefulSetSpec{
-			Replicas:            lo.ToPtr(int32(replicas)),
-			PodManagementPolicy: appsv1.ParallelPodManagement,
-			PersistentVolumeClaimRetentionPolicy: &appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
-				WhenScaled:  appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
-				WhenDeleted: appsv1.DeletePersistentVolumeClaimRetentionPolicyType,
-			},
-			Selector: labelselector,
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: selector,
-				},
-			},
-		}
-
-		ss.Spec.ServiceName = fmt.Sprintf("%s-headless", ctx.Workspace.Name)
-		return nil
-	}
+	_ = "STUB: not implemented"
+	return nil
 }
 
+// if workspaceObj.Labels contains "inferenceset.kaito.sh/created-by", add it to selector for VPA/HPA purpose
+
+// Propagate MRI parent and inference-role labels to pod templates for InferencePool endpoint selection.
+
 func AddStatefulSetVolumeClaimTemplates(volumeClaimTemplates corev1.PersistentVolumeClaim) func(*generator.WorkspaceGeneratorContext, *appsv1.StatefulSet) error {
-	return func(ctx *generator.WorkspaceGeneratorContext, ss *appsv1.StatefulSet) error {
-		ss.Spec.VolumeClaimTemplates = append(ss.Spec.VolumeClaimTemplates, volumeClaimTemplates)
-		return nil
-	}
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func SetStatefulSetPodSpec(podSpec *corev1.PodSpec) func(*generator.WorkspaceGeneratorContext, *appsv1.StatefulSet) error {
-	return func(ctx *generator.WorkspaceGeneratorContext, ss *appsv1.StatefulSet) error {
-		ss.Spec.Template.Spec = *podSpec
-		return nil
-	}
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func GenerateTuningJobManifest(revisionNum string) func(*generator.WorkspaceGeneratorContext, *batchv1.Job) error {
-	return func(ctx *generator.WorkspaceGeneratorContext, j *batchv1.Job) error {
-		labels := map[string]string{
-			kaitov1beta1.LabelWorkspaceName: ctx.Workspace.Name,
-		}
-
-		j.ObjectMeta = metav1.ObjectMeta{
-			Name:      ctx.Workspace.Name,
-			Namespace: ctx.Workspace.Namespace,
-			Labels:    labels,
-			Annotations: map[string]string{
-				kaitov1beta1.WorkspaceRevisionAnnotation: revisionNum,
-			},
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(ctx.Workspace, kaitov1beta1.GroupVersion.WithKind("Workspace")),
-			},
-		}
-
-		j.Spec = batchv1.JobSpec{
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
-			},
-		}
-		return nil
-	}
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func SetJobPodSpec(podSpec *corev1.PodSpec) func(*generator.WorkspaceGeneratorContext, *batchv1.Job) error {
-	return func(ctx *generator.WorkspaceGeneratorContext, j *batchv1.Job) error {
-		if len(podSpec.Containers) > 1 {
-			podSpec.ShareProcessNamespace = ptr.To(true)
-		}
-		j.Spec.Template.Spec = *podSpec
-		return nil
-	}
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func GeneratePullerContainers(wObj *kaitov1beta1.Workspace, adapters []kaitov1beta1.AdapterSpec, volumeMounts []corev1.VolumeMount) ([]corev1.Container, []corev1.EnvVar, []corev1.Volume) {
-	size := len(adapters)
-
-	initContainers := make([]corev1.Container, 0, size)
-	var envVars []corev1.EnvVar
-	volumes := make([]corev1.Volume, 0, size)
-
-	for _, adapter := range adapters {
-		source := adapter.Source
-		sourceName := source.Name
-
-		outputDirectory := path.Join("/mnt/adapter", sourceName)
-		pullerContainer := image.NewPullerContainer(source.Image, outputDirectory)
-		pullerContainer.Name += "-" + sourceName
-		pullerContainer.VolumeMounts = volumeMounts
-
-		if len(source.ImagePullSecrets) > 0 {
-			volume, volumeMount := utils.ConfigImagePullSecretVolume(sourceName+"-inference-adapter", source.ImagePullSecrets)
-			volumes = append(volumes, volume)
-			pullerContainer.VolumeMounts = append(pullerContainer.VolumeMounts, volumeMount)
-		}
-
-		if adapter.Strength != nil {
-			envVar := corev1.EnvVar{
-				Name:  sourceName,
-				Value: *adapter.Strength,
-			}
-			envVars = append(envVars, envVar)
-		}
-
-		initContainers = append(initContainers, *pullerContainer)
-	}
-
-	return initContainers, envVars, volumes
+	_ = "STUB: not implemented"
+	return nil, nil, nil
 }
 
 func GenerateManifestWithPodTemplate(workspaceObj *kaitov1beta1.Workspace, tolerations []corev1.Toleration) *appsv1.StatefulSet {
-	selectorLabels := kaitov1beta1.SanitizedMatchLabels(workspaceObj.Resource.LabelSelector)
-	nodeRequirements := make([]corev1.NodeSelectorRequirement, 0, len(selectorLabels))
-	for key, value := range selectorLabels {
-		nodeRequirements = append(nodeRequirements, corev1.NodeSelectorRequirement{
-			Key:      key,
-			Operator: corev1.NodeSelectorOpIn,
-			Values:   []string{value},
-		})
-	}
-
-	templateCopy := workspaceObj.Inference.Template.DeepCopy()
-
-	if templateCopy.ObjectMeta.Labels == nil {
-		templateCopy.ObjectMeta.Labels = make(map[string]string)
-	}
-	templateCopy.ObjectMeta.Labels[kaitov1beta1.LabelWorkspaceName] = workspaceObj.Name
-	labelselector := &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			kaitov1beta1.LabelWorkspaceName: workspaceObj.Name,
-		},
-	}
-
-	// if workspaceObj.Labels contains "inferenceset.kaito.sh/created-by", add it to selector for VPA/HPA purpose
-	if workspaceObj.Labels != nil {
-		if createdBy, exists := workspaceObj.Labels[consts.WorkspaceCreatedByInferenceSetLabel]; exists {
-			klog.Infof("Adding label %s=%s to statefulset selector", consts.WorkspaceCreatedByInferenceSetLabel, createdBy)
-			templateCopy.ObjectMeta.Labels[consts.WorkspaceCreatedByInferenceSetLabel] = createdBy
-			labelselector.MatchLabels[consts.WorkspaceCreatedByInferenceSetLabel] = createdBy
-		}
-		// Propagate MRI parent and inference-role labels to pod templates for InferencePool endpoint selection.
-		if parent, exists := workspaceObj.Labels[kaitov1alpha1.LabelMultiRoleInferenceParent]; exists {
-			templateCopy.ObjectMeta.Labels[kaitov1alpha1.LabelMultiRoleInferenceParent] = parent
-			labelselector.MatchLabels[kaitov1alpha1.LabelMultiRoleInferenceParent] = parent
-		}
-		if role, exists := workspaceObj.Labels[kaitov1alpha1.LabelInferenceRole]; exists {
-			templateCopy.ObjectMeta.Labels[kaitov1alpha1.LabelInferenceRole] = role
-			labelselector.MatchLabels[kaitov1alpha1.LabelInferenceRole] = role
-		}
-	}
-
-	// Overwrite affinity. Only set node affinity when there are user-defined
-	// node requirements; an empty MatchExpressions list is rejected by the
-	// Kubernetes API server.
-	if len(nodeRequirements) > 0 {
-		templateCopy.Spec.Affinity = &corev1.Affinity{
-			NodeAffinity: &corev1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-					NodeSelectorTerms: []corev1.NodeSelectorTerm{
-						{
-							MatchExpressions: nodeRequirements,
-						},
-					},
-				},
-			},
-		}
-	} else {
-		templateCopy.Spec.Affinity = nil
-	}
-
-	// append tolerations
-	if templateCopy.Spec.Tolerations == nil {
-		templateCopy.Spec.Tolerations = tolerations
-	} else {
-		templateCopy.Spec.Tolerations = append(templateCopy.Spec.Tolerations, tolerations...)
-	}
-
-	return &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      workspaceObj.Name,
-			Namespace: workspaceObj.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(workspaceObj, kaitov1beta1.GroupVersion.WithKind("Workspace")),
-			},
-		},
-		Spec: appsv1.StatefulSetSpec{
-			Replicas: lo.ToPtr(workspaceObj.Status.TargetNodeCount),
-			Selector: labelselector,
-			Template: *templateCopy,
-		},
-	}
+	_ = "STUB: not implemented"
+	return nil
 }
 
+// if workspaceObj.Labels contains "inferenceset.kaito.sh/created-by", add it to selector for VPA/HPA purpose
+
+// Propagate MRI parent and inference-role labels to pod templates for InferencePool endpoint selection.
+
+// Overwrite affinity. Only set node affinity when there are user-defined
+// node requirements; an empty MatchExpressions list is rejected by the
+// Kubernetes API server.
+
+// append tolerations
+
 func GetModelImageName(presetObj *pkgmodel.PresetParam) string {
-	return utils.GetPresetImageName(presetObj.Registry, presetObj.Name, presetObj.Tag)
+	_ = "STUB: not implemented"
+	return ""
 }
 
 // GenerateModelPullerContainer creates an init container that pulls model images using ORAS
 func GenerateModelPullerContainer(ctx context.Context, workspaceObj *kaitov1beta1.Workspace, presetObj *pkgmodel.PresetParam) []corev1.Container {
-	if presetObj.DownloadAtRuntime {
-		// If the preset is set to download at runtime, we don't need to pull the model weights.
-		return nil
-	}
-
-	puller := corev1.Container{
-		Name:  "model-weights-downloader",
-		Image: utils.DefaultORASToolImage,
-		Command: []string{
-			"oras",
-			"pull",
-			GetModelImageName(presetObj),
-			"-o",
-			utils.DefaultWeightsVolumePath,
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "model-weights-volume",
-				MountPath: utils.DefaultWeightsVolumePath,
-			},
-		},
-	}
-
-	return []corev1.Container{puller}
+	_ = "STUB: not implemented"
+	return nil
 }
+
+// If the preset is set to download at runtime, we don't need to pull the model weights.
 
 // GenerateInferencePoolOCIRepository generates a Flux OCIRepository for the inference pool.
 func GenerateInferencePoolOCIRepository(inferenceSetObj *kaitov1alpha1.InferenceSet) *sourcev1.OCIRepository {
-	return &sourcev1.OCIRepository{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.InferencePoolName(inferenceSetObj.Name),
-			Namespace: inferenceSetObj.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(inferenceSetObj, kaitov1alpha1.GroupVersion.WithKind("InferenceSet")),
-			},
-		},
-		Spec: sourcev1.OCIRepositorySpec{
-			// Chart source for Gateway API Inference Extension inference pool;
-			// keep in sync with consts.InferencePoolChartVersion when upgrading.
-			URL: consts.InferencePoolChartURL,
-			Reference: &sourcev1.OCIRepositoryRef{
-				Tag: consts.InferencePoolChartVersion,
-			},
-		},
-	}
+	_ = "STUB: not implemented"
+	return nil
 }
+
+// Chart source for Gateway API Inference Extension inference pool;
+// keep in sync with consts.InferencePoolChartVersion when upgrading.
 
 // inferencePoolTargetPort returns the target port for the InferencePool.
 // For decode-role InferenceSets with vLLM runtime, traffic goes through the
@@ -408,76 +130,24 @@ func GenerateInferencePoolOCIRepository(inferenceSetObj *kaitov1alpha1.Inference
 // feature gate is enabled (default), the runtime defaults to vLLM unless
 // explicitly overridden by the kaito.sh/runtime annotation.
 func inferencePoolTargetPort(inferenceSetObj *kaitov1alpha1.InferenceSet) int32 {
-	role := inferenceSetObj.Spec.Template.Labels[kaitov1beta1.LabelInferenceRole]
-	if role != string(kaitov1alpha1.MultiRoleInferenceRoleDecode) {
-		return consts.PortInferenceServer
-	}
-	// Mirror GetWorkspaceRuntimeName logic: default to vLLM when feature gate is on.
-	if !featuregates.FeatureGates[consts.FeatureFlagVLLM] {
-		return consts.PortInferenceServer
-	}
-	runtime := inferenceSetObj.Annotations[kaitov1beta1.AnnotationWorkspaceRuntime]
-	if runtime == string(pkgmodel.RuntimeNameHuggingfaceTransformers) {
-		return consts.PortInferenceServer
-	}
-	return consts.PortRoutingSidecar
+	_ = "STUB: not implemented"
+	return 0
 }
+
+// Mirror GetWorkspaceRuntimeName logic: default to vLLM when feature gate is on.
 
 // GenerateInferencePoolHelmRelease generates a Flux HelmRelease for the inference pool.
 func GenerateInferencePoolHelmRelease(inferenceSetObj *kaitov1alpha1.InferenceSet) (*helmv2.HelmRelease, error) {
-	matchLabels := map[string]string{
-		consts.WorkspaceCreatedByInferenceSetLabel: inferenceSetObj.Name,
-	}
-
-	// The Endpoint Picker (EPP) from Gateway API Inference Extension picks an endpoint that can serve traffic.
-	// KAITO overrides the default GWIE EPP image with the llm-d inference scheduler, which provides
-	// advanced scheduling plugins (KV cache-aware routing, P/D disaggregation, pluggable filters/scorers).
-	// In a multi-node inference environment, this means we need to select the leader pod (with pod index 0)
-	// since only the leader pod is capable of serving traffic.
-	matchLabels[appsv1.PodIndexLabel] = "0"
-
-	// Based on https://github.com/kubernetes-sigs/gateway-api-inference-extension/blob/v1.3.1/config/charts/inferencepool/values.yaml
-	helmValues := map[string]any{
-		"inferenceExtension": map[string]any{
-			"image": map[string]string{
-				"hub":        consts.EPPImageHub,
-				"name":       consts.EPPImageName,
-				"tag":        consts.EPPImageTag,
-				"pullPolicy": string(corev1.PullIfNotPresent),
-			},
-		},
-		"inferencePool": map[string]any{
-			"targetPorts": []map[string]any{{
-				"number": inferencePoolTargetPort(inferenceSetObj),
-			}},
-			"modelServers": map[string]any{
-				"matchLabels": matchLabels,
-			},
-		},
-	}
-	rawHelmValues, err := json.Marshal(helmValues)
-	if err != nil {
-		return nil, err
-	}
-
-	return &helmv2.HelmRelease{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.InferencePoolName(inferenceSetObj.Name),
-			Namespace: inferenceSetObj.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(inferenceSetObj, kaitov1alpha1.GroupVersion.WithKind("InferenceSet")),
-			},
-		},
-		Spec: helmv2.HelmReleaseSpec{
-			// Referencing the OCIRepository created above
-			ChartRef: &helmv2.CrossNamespaceSourceReference{
-				Kind:      sourcev1.OCIRepositoryKind,
-				Namespace: inferenceSetObj.Namespace,
-				Name:      utils.InferencePoolName(inferenceSetObj.Name),
-			},
-			Values: &apiextensionsv1.JSON{
-				Raw: rawHelmValues,
-			},
-		},
-	}, nil
+	_ = "STUB: not implemented"
+	return nil, nil
 }
+
+// The Endpoint Picker (EPP) from Gateway API Inference Extension picks an endpoint that can serve traffic.
+// KAITO overrides the default GWIE EPP image with the llm-d inference scheduler, which provides
+// advanced scheduling plugins (KV cache-aware routing, P/D disaggregation, pluggable filters/scorers).
+// In a multi-node inference environment, this means we need to select the leader pod (with pod index 0)
+// since only the leader pod is capable of serving traffic.
+
+// Based on https://github.com/kubernetes-sigs/gateway-api-inference-extension/blob/v1.3.1/config/charts/inferencepool/values.yaml
+
+// Referencing the OCIRepository created above

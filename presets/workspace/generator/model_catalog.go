@@ -13,15 +13,6 @@
 
 package generator
 
-import (
-	"encoding/json"
-	"fmt"
-	"os"
-	"strings"
-
-	"gopkg.in/yaml.v2"
-)
-
 // CatalogEntry represents a pre-computed model entry in the catalog,
 // storing the raw HuggingFace config values needed for preset generation
 // without requiring runtime API calls.
@@ -74,181 +65,35 @@ var optionalKeyMap = map[string][]string{
 // fetchModelInfo fetches the model info from the HuggingFace API
 // and returns license, pipeline_tag, and base_model.
 func fetchModelInfo(g *Generator, repo string) (license, pipelineTag string, baseModel []string) {
-	url := fmt.Sprintf("%s/api/models/%s", HuggingFaceWebsite, repo)
-	body, err := g.fetchURL(url)
-	if err != nil {
-		return "", "", nil
-	}
-
-	var info map[string]interface{}
-	if err := json.Unmarshal(body, &info); err != nil {
-		return "", "", nil
-	}
-
-	// pipeline_tag: prefer top-level, fall back to cardData
-	if pt, ok := info["pipeline_tag"].(string); ok && pt != "" {
-		pipelineTag = pt
-	}
-
-	// cardData holds license and base_model
-	cardData, _ := info["cardData"].(map[string]interface{})
-	if cardData != nil {
-		if l, ok := cardData["license"].(string); ok {
-			license = l
-		}
-		// When license is "other", HuggingFace stores the actual license
-		// identifier in the license_name field.
-		if license == "other" {
-			if ln, ok := cardData["license_name"].(string); ok && ln != "" {
-				license = ln
-			}
-		}
-		if pipelineTag == "" {
-			if pt, ok := cardData["pipeline_tag"].(string); ok {
-				pipelineTag = pt
-			}
-		}
-		// base_model can be a string or a list of strings
-		switch bm := cardData["base_model"].(type) {
-		case string:
-			if bm != "" {
-				baseModel = []string{bm}
-			}
-		case []interface{}:
-			for _, v := range bm {
-				if s, ok := v.(string); ok && s != "" {
-					baseModel = append(baseModel, s)
-				}
-			}
-		}
-	}
-
-	return license, pipelineTag, baseModel
+	_ = "STUB: not implemented"
+	return "", "", nil
 }
+
+// pipeline_tag: prefer top-level, fall back to cardData
+
+// cardData holds license and base_model
+
+// When license is "other", HuggingFace stores the actual license
+// identifier in the license_name field.
+
+// base_model can be a string or a list of strings
 
 // FetchCatalogEntry fetches a CatalogEntry for a model repo from HuggingFace.
 func FetchCatalogEntry(repo, token string) (*CatalogEntry, error) {
-	g := NewGenerator(repo, token)
+	_ = "STUB: not implemented"
+	return nil, nil
 
 	// Fetch model info (license, pipeline, base_model)
-	license, pipelineTag, baseModel := fetchModelInfo(g, repo)
-
-	if err := g.FetchModelMetadata(); err != nil {
-		return nil, err
-	}
-
-	config := g.ModelConfig
-
-	entry := &CatalogEntry{
-		Name:          repo,
-		Description:   fmt.Sprintf("%s/%s", HuggingFaceWebsite, repo),
-		License:       license,
-		PipelineTag:   pipelineTag,
-		BaseModel:     baseModel,
-		ModelFileSize: g.Param.Metadata.ModelFileSize,
-	}
-
-	if archList, ok := config["architectures"].([]interface{}); ok {
-		for _, a := range archList {
-			if s, ok := a.(string); ok {
-				entry.Architectures = append(entry.Architectures, s)
-			}
-		}
-	}
-
-	entry.ModelTokenLimit = getInt(config, configKeyMap["modelTokenLimit"], 0)
-	entry.HiddenSize = getInt(config, configKeyMap["hiddenSize"], 0)
-	entry.NumHiddenLayers = getInt(config, configKeyMap["numHiddenLayers"], 0)
-	entry.NumAttentionHeads = getInt(config, configKeyMap["numAttentionHeads"], 0)
-	entry.NumKeyValueHeads = getInt(config, configKeyMap["numKeyValueHeads"], 0)
-
-	entry.HeadDim = getInt(config, optionalKeyMap["headDim"], 0)
-	entry.KVLoraRank = getInt(config, optionalKeyMap["kvLoraRank"], 0)
-	entry.QKRopeHeadDim = getInt(config, optionalKeyMap["qkRopeHeadDim"], 0)
-
-	if entry.HeadDim > 0 && entry.NumAttentionHeads > 0 && entry.HiddenSize > 0 {
-		if entry.HeadDim == entry.HiddenSize/entry.NumAttentionHeads {
-			entry.HeadDim = 0
-		}
-	}
-
-	// Extract quantization config (e.g., AWQ, GPTQ) from HuggingFace config.json.
-	if qc, ok := config["quantization_config"].(map[string]interface{}); ok {
-		entry.QuantMethod = getString(qc, optionalKeyMap["quantMethod"])
-		entry.QuantBits = getInt(qc, []string{"bits"}, 0)
-	}
-
-	// Copy format fields from generator (only when non-default)
-	if g.LoadFormat != "auto" {
-		entry.LoadFormat = g.LoadFormat
-	}
-	if g.ConfigFormat != "auto" {
-		entry.ConfigFormat = g.ConfigFormat
-	}
-	if g.TokenizerMode != "auto" {
-		entry.TokenizerMode = g.TokenizerMode
-	}
-
-	// Apply hardcoded overrides — these always take precedence over HF values.
-	if ovr, ok := catalogOverrides[strings.ToLower(repo)]; ok {
-		if ovr.ModelTokenLimit != 0 {
-			entry.ModelTokenLimit = ovr.ModelTokenLimit
-		}
-		if ovr.NumAttentionHeads != 0 {
-			entry.NumAttentionHeads = ovr.NumAttentionHeads
-		}
-		if ovr.NumKeyValueHeads != 0 {
-			entry.NumKeyValueHeads = ovr.NumKeyValueHeads
-		}
-		if ovr.HeadDim != 0 {
-			entry.HeadDim = ovr.HeadDim
-		}
-		if ovr.HiddenSize != 0 {
-			entry.HiddenSize = ovr.HiddenSize
-		}
-		if ovr.NumHiddenLayers != 0 {
-			entry.NumHiddenLayers = ovr.NumHiddenLayers
-		}
-		if ovr.KVLoraRank != 0 {
-			entry.KVLoraRank = ovr.KVLoraRank
-		}
-		if ovr.QKRopeHeadDim != 0 {
-			entry.QKRopeHeadDim = ovr.QKRopeHeadDim
-		}
-		if len(ovr.Architectures) > 0 {
-			entry.Architectures = ovr.Architectures
-		}
-		if ovr.PipelineTag != "" {
-			entry.PipelineTag = ovr.PipelineTag
-		}
-	}
-
-	return entry, nil
 }
+
+// Extract quantization config (e.g., AWQ, GPTQ) from HuggingFace config.json.
+
+// Copy format fields from generator (only when non-default)
+
+// Apply hardcoded overrides — these always take precedence over HF values.
 
 // LoadCatalog reads a model_catalog.yaml file and returns its entries.
-func LoadCatalog(path string) ([]CatalogEntry, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var catalog ModelCatalog
-	if err := yaml.Unmarshal(data, &catalog); err != nil {
-		return nil, fmt.Errorf("error parsing catalog: %v", err)
-	}
-	return catalog.Models, nil
-}
+func LoadCatalog(path string) ([]CatalogEntry, error) { _ = "STUB: not implemented"; return nil, nil }
 
 // SaveCatalog writes catalog entries to a YAML file.
-func SaveCatalog(path string, entries []CatalogEntry) error {
-	catalog := ModelCatalog{Models: entries}
-	data, err := yaml.Marshal(&catalog)
-	if err != nil {
-		return fmt.Errorf("error marshaling catalog: %v", err)
-	}
-	header := []byte("# Do not edit this file manually. This file is generated by presets/workspace/generator/update_model_catalog/main.go\n")
-	return os.WriteFile(path, append(header, data...), 0600)
-}
+func SaveCatalog(path string, entries []CatalogEntry) error { _ = "STUB: not implemented"; return nil }

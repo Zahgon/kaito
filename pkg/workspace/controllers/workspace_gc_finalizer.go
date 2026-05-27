@@ -16,40 +16,17 @@ package controllers
 import (
 	"context"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	kaitov1beta1 "github.com/kaito-project/kaito/api/v1beta1"
-	"github.com/kaito-project/kaito/pkg/utils/consts"
-	"github.com/kaito-project/kaito/pkg/utils/workspace"
 )
 
 // garbageCollectWorkspace remove finalizer associated with workspace object.
 func (c *WorkspaceReconciler) garbageCollectWorkspace(ctx context.Context, wObj *kaitov1beta1.Workspace) (ctrl.Result, error) {
-	klog.InfoS("garbageCollectWorkspace", "workspace", klog.KObj(wObj))
-
-	// DeleteNodes via the NodeProvisioner interface.
-	// KarpenterProvisioner deletes the NodePool; GpuProvisioner deletes NodeClaims;
-	// BYOProvisioner (BYO mode) is a no-op.
-	if err := c.nodeProvisioner.DeleteNodes(ctx, wObj); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	updateErr := workspace.UpdateWorkspaceWithRetry(ctx, c.Client, wObj, func(ws *kaitov1beta1.Workspace) error {
-		controllerutil.RemoveFinalizer(ws, consts.WorkspaceFinalizer)
-		return nil
-	})
-	if updateErr != nil {
-		if apierrors.IsNotFound(updateErr) {
-			return ctrl.Result{}, nil
-		}
-		klog.ErrorS(updateErr, "failed to update the workspace to remove finalizer", "workspace", klog.KObj(wObj))
-		return ctrl.Result{}, updateErr
-	}
-
-	klog.InfoS("successfully removed the workspace finalizers", "workspace", klog.KObj(wObj))
-
-	return ctrl.Result{}, nil
+	_ = "STUB: not implemented"
+	return *new(ctrl.Result), nil
 }
+
+// DeleteNodes via the NodeProvisioner interface.
+// KarpenterProvisioner deletes the NodePool; GpuProvisioner deletes NodeClaims;
+// BYOProvisioner (BYO mode) is a no-op.

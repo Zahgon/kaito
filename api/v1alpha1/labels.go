@@ -14,9 +14,7 @@
 package v1alpha1
 
 import (
-	"github.com/kaito-project/kaito/pkg/featuregates"
 	"github.com/kaito-project/kaito/pkg/model"
-	"github.com/kaito-project/kaito/pkg/utils/consts"
 )
 
 const (
@@ -75,60 +73,22 @@ const (
 
 // GetWorkspaceRuntimeName returns the runtime name of the workspace.
 func GetWorkspaceRuntimeName(ws *Workspace) model.RuntimeName {
-	if ws == nil {
-		panic("workspace is nil")
-	}
-
-	if !featuregates.FeatureGates[consts.FeatureFlagVLLM] {
-		return model.RuntimeNameHuggingfaceTransformers
-	}
-
-	runtime := model.RuntimeNameVLLM
-	name := ws.Annotations[AnnotationWorkspaceRuntime]
-	switch name {
-	case string(model.RuntimeNameHuggingfaceTransformers):
-		runtime = model.RuntimeNameHuggingfaceTransformers
-	case string(model.RuntimeNameVLLM):
-		runtime = model.RuntimeNameVLLM
-	}
-
-	return runtime
+	_ = "STUB: not implemented"
+	return *new(model.RuntimeName)
 }
 
 func GetInferenceSetRuntimeName(iObj *InferenceSet) model.RuntimeName {
-	if iObj == nil {
-		panic("inferenceset is nil")
-	}
-
-	if !featuregates.FeatureGates[consts.FeatureFlagVLLM] {
-		return model.RuntimeNameHuggingfaceTransformers
-	}
-
-	runtime := model.RuntimeNameVLLM
-	name := iObj.Annotations[AnnotationWorkspaceRuntime]
-	switch name {
-	case string(model.RuntimeNameHuggingfaceTransformers):
-		runtime = model.RuntimeNameHuggingfaceTransformers
-	case string(model.RuntimeNameVLLM):
-		runtime = model.RuntimeNameVLLM
-	}
-
-	return runtime
+	_ = "STUB: not implemented"
+	return *new(model.RuntimeName)
 }
 
 // IsRunBenchmarkEnabled reports whether the InferenceSet benchmark is enabled.
 // The benchmark is on by default; it is only disabled when the annotation
 // kaito.sh/disable-benchmark is explicitly set to "true".
-func IsRunBenchmarkEnabled(iObj *InferenceSet) bool {
-	return iObj.Annotations[AnnotationDisableBenchmark] != "true"
-}
+func IsRunBenchmarkEnabled(iObj *InferenceSet) bool { _ = "STUB: not implemented"; return false }
 
 // ShouldRunBenchmark reports whether the InferenceSet's child workspaces should
 // run the post-load benchmark. Same criteria as the Workspace-level check:
 // benchmark must be enabled, runtime must be vLLM, and the template must use a
 // preset (not a custom container template).
-func ShouldRunBenchmark(iObj *InferenceSet) bool {
-	return IsRunBenchmarkEnabled(iObj) &&
-		GetInferenceSetRuntimeName(iObj) == model.RuntimeNameVLLM &&
-		iObj.Spec.Template.Inference.Preset != nil
-}
+func ShouldRunBenchmark(iObj *InferenceSet) bool { _ = "STUB: not implemented"; return false }

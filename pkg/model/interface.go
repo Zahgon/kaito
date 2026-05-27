@@ -14,11 +14,6 @@
 package model
 
 import (
-	"fmt"
-	"maps"
-	"path"
-	"strconv"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -26,8 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kaito-project/kaito/pkg/sku"
-	"github.com/kaito-project/kaito/pkg/utils"
-	"github.com/kaito-project/kaito/pkg/utils/consts"
 )
 
 type Model interface {
@@ -169,14 +162,10 @@ type Metadata struct {
 
 // Validate checks if the Metadata is valid.
 func (m *Metadata) Validate() error {
+	_ = "STUB: not implemented"
 	// Some models requiring authentication may not have a version URL, so we allow it to be empty until
 	// we remove support for preset models requiring authentication.
-	if m.Version == "" {
-		return nil
-	}
-
-	_, _, err := utils.ParseHuggingFaceModelVersion(m.Version)
-	return err
+	return nil
 }
 
 // PresetParam defines the preset inference parameters for a model.
@@ -248,47 +237,19 @@ type VLLMParam struct {
 	DisallowLoRA bool
 }
 
-func (p *PresetParam) DeepCopy() *PresetParam {
-	if p == nil {
-		return nil
-	}
-	out := new(PresetParam)
-	*out = *p
-	out.RuntimeParam = p.RuntimeParam.DeepCopy()
-	out.TuningPerGPUMemoryRequirement = maps.Clone(p.TuningPerGPUMemoryRequirement)
-	return out
-}
+func (p *PresetParam) DeepCopy() *PresetParam { _ = "STUB: not implemented"; return nil }
 
 func (rp *RuntimeParam) DeepCopy() RuntimeParam {
-	if rp == nil {
-		return RuntimeParam{}
-	}
-	out := *rp
-	out.Transformers = rp.Transformers.DeepCopy()
-	out.VLLM = rp.VLLM.DeepCopy()
-	return out
+	_ = "STUB: not implemented"
+	return *new(RuntimeParam)
 }
 
 func (h *HuggingfaceTransformersParam) DeepCopy() HuggingfaceTransformersParam {
-	if h == nil {
-		return HuggingfaceTransformersParam{}
-	}
-	out := *h
-	out.AccelerateParams = maps.Clone(h.AccelerateParams)
-	out.ModelRunParams = maps.Clone(h.ModelRunParams)
-	return out
+	_ = "STUB: not implemented"
+	return *new(HuggingfaceTransformersParam)
 }
 
-func (v *VLLMParam) DeepCopy() VLLMParam {
-	if v == nil {
-		return VLLMParam{}
-	}
-	out := *v
-	out.RayLeaderParams = maps.Clone(v.RayLeaderParams)
-	out.RayWorkerParams = maps.Clone(v.RayWorkerParams)
-	out.ModelRunParams = maps.Clone(v.ModelRunParams)
-	return out
-}
+func (v *VLLMParam) DeepCopy() VLLMParam { _ = "STUB: not implemented"; return *new(VLLMParam) }
 
 // RuntimeContext defines the runtime context for a model.
 type RuntimeContext struct {
@@ -310,109 +271,45 @@ type RuntimeContextExtraArguments struct {
 }
 
 func (p *PresetParam) GetInferenceCommand(rc RuntimeContext) []string {
-	switch rc.RuntimeName {
-	case RuntimeNameHuggingfaceTransformers:
-		return p.buildHuggingfaceInferenceCommand()
-	case RuntimeNameVLLM:
-		return p.buildVLLMInferenceCommand(rc)
-	default:
-		return nil
-	}
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func (p *PresetParam) buildHuggingfaceInferenceCommand() []string {
-	if p.Transformers.ModelName != "" {
-		p.Transformers.ModelRunParams["served_model_name"] = p.Transformers.ModelName
-	}
-	if p.DownloadAtRuntime {
-		repoId, revision, _ := utils.ParseHuggingFaceModelVersion(p.Version)
-		p.Transformers.ModelRunParams["pretrained_model_name_or_path"] = repoId
-		if revision != "" {
-			p.Transformers.ModelRunParams["revision"] = revision
-		}
-		p.Transformers.ModelRunParams["allow_remote_files"] = ""
-	}
-	torchCommand := utils.BuildCmdStr(
-		p.Transformers.BaseCommand,
-		p.Transformers.AccelerateParams,
-	)
-	modelCommand := utils.BuildCmdStr(
-		p.Transformers.InferenceMainFile,
-		p.Transformers.ModelRunParams,
-	)
-	return utils.ShellCmd(torchCommand + " " + modelCommand)
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func (p *PresetParam) buildVLLMInferenceCommand(rc RuntimeContext) []string {
+	_ = "STUB: not implemented"
 	// For InferenceSet-managed workspaces, determine the served-model-name:
 	// - MRI workspaces (have multiroleinference.kaito.sh/created-by label): use VLLM.ModelName
 	//   so all roles share a single model identifier for EPP routing.
 	// - Standalone InferenceSet workspaces: use the InferenceSet name (label value)
 	//   so EPP routes requests by InferenceSet identity.
 	// - Fallback: use VLLM.ModelName if available.
-	if isName, ok := rc.WorkspaceMetadata.Labels[consts.WorkspaceCreatedByInferenceSetLabel]; ok && isName != "" {
-		// Note: string literal used to avoid import cycle with api/v1alpha1 package.
-		// Matches v1alpha1.LabelMultiRoleInferenceParent.
-		if _, isMRI := rc.WorkspaceMetadata.Labels["multiroleinference.kaito.sh/created-by"]; isMRI && p.VLLM.ModelName != "" {
-			p.VLLM.ModelRunParams["served-model-name"] = p.VLLM.ModelName
-		} else {
-			p.VLLM.ModelRunParams["served-model-name"] = isName
-		}
-	} else if p.VLLM.ModelName != "" {
-		p.VLLM.ModelRunParams["served-model-name"] = p.VLLM.ModelName
-	}
-	if rc.MaxModelLen > 0 {
-		p.VLLM.ModelRunParams["max-model-len"] = strconv.Itoa(rc.MaxModelLen)
-	}
-	p.VLLM.ModelRunParams["gpu-memory-utilization"] = "0.84"
-
-	// Dynamically determine dtype based on GPU compute capability.
-	// bfloat16 requires CUDA compute capability >= 8.0 (Ampere+).
-	// Fall back to float16 on older GPUs.
-	if rc.GPUConfig != nil && !rc.GPUConfig.SupportsBFloat16() {
-		p.VLLM.ModelRunParams["dtype"] = "float16"
-	}
-
-	if !p.VLLM.DisallowLoRA && rc.AdaptersEnabled {
-		p.VLLM.ModelRunParams["enable-lora"] = ""
-	}
-	if p.DownloadAtRuntime {
-		repoId, revision, _ := utils.ParseHuggingFaceModelVersion(p.Version)
-		p.VLLM.ModelRunParams["model"] = repoId
-		if revision != "" {
-			p.VLLM.ModelRunParams["code-revision"] = revision
-		}
-		p.VLLM.ModelRunParams["download-dir"] = utils.DefaultWeightsVolumePath
-	}
-	if rc.ConfigVolume != nil {
-		p.VLLM.ModelRunParams["kaito-config-file"] = path.Join(rc.ConfigVolume.MountPath, ConfigfileNameVLLM)
-	}
-	if rc.PerformanceMode != "" && rc.PerformanceMode != "balanced" {
-		p.VLLM.ModelRunParams["performance-mode"] = rc.PerformanceMode
-	}
-
-	// Hybrid Mamba/Attention models (e.g., NemotronH) require the hybrid KV cache
-	// manager in vLLM, which is incompatible with LMCache KV cache CPU offloading.
-	// Disable offloading for these architectures to prevent startup crashes.
-	if p.isVLLMHybridKVCacheManagerRequired() {
-		p.VLLM.ModelRunParams["kaito-kv-cache-cpu-memory-utilization"] = "0"
-	}
-
-	// Parallelism strategy follows a 3-tier hierarchy (see configureParallelism):
-	//  1. Data Parallelism (DP)   – model fits on a single GPU
-	//  2. Tensor Parallelism (TP) – model fits on a single node (multiple GPUs)
-	//  3. Pipeline Parallelism (PP) + TP – model requires multiple nodes
-	p.configureParallelism(rc)
-
-	// Single-node path: no Ray cluster needed.
-	if !rc.DistributedInference || rc.NumNodes == 1 {
-		modelCommand := utils.BuildCmdStr(p.VLLM.BaseCommand, p.VLLM.ModelRunParams)
-		return utils.ShellCmd(modelCommand)
-	}
-
-	// Multi-node path: set up a Ray cluster for cross-node parallelism.
-	return p.buildMultiNodeRayCommand(rc)
+	return nil
 }
+
+// Note: string literal used to avoid import cycle with api/v1alpha1 package.
+// Matches v1alpha1.LabelMultiRoleInferenceParent.
+
+// Dynamically determine dtype based on GPU compute capability.
+// bfloat16 requires CUDA compute capability >= 8.0 (Ampere+).
+// Fall back to float16 on older GPUs.
+
+// Hybrid Mamba/Attention models (e.g., NemotronH) require the hybrid KV cache
+// manager in vLLM, which is incompatible with LMCache KV cache CPU offloading.
+// Disable offloading for these architectures to prevent startup crashes.
+
+// Parallelism strategy follows a 3-tier hierarchy (see configureParallelism):
+//  1. Data Parallelism (DP)   – model fits on a single GPU
+//  2. Tensor Parallelism (TP) – model fits on a single node (multiple GPUs)
+//  3. Pipeline Parallelism (PP) + TP – model requires multiple nodes
+
+// Single-node path: no Ray cluster needed.
+
+// Multi-node path: set up a Ray cluster for cross-node parallelism.
 
 // configureParallelism sets the vLLM parallelism parameters according to a
 // 3-tier strategy based on where the model can be placed:
@@ -427,100 +324,47 @@ func (p *PresetParam) buildVLLMInferenceCommand(rc RuntimeContext) []string {
 //
 //  3. Multi-node (PP + TP): If the model exceeds a single node's capacity, we use
 //     pipeline parallelism across nodes, with tensor parallelism within each node.
-func (p *PresetParam) configureParallelism(rc RuntimeContext) {
-	if p.DisableTensorParallelism {
-		return
-	}
+func (p *PresetParam) configureParallelism(rc RuntimeContext) { _ = "STUB: not implemented"; return }
 
-	multiNode := rc.DistributedInference && rc.NumNodes > 1
+// Tier 1: Model fits on a single GPU → Data Parallelism.
+// Use DP only on a single node; multi-node DP is not supported.
 
-	// Tier 1: Model fits on a single GPU → Data Parallelism.
-	// Use DP only on a single node; multi-node DP is not supported.
-	if !multiNode && p.modelFitsOnSingleGPU(rc) {
-		p.VLLM.ModelRunParams["data-parallel-size"] = strconv.Itoa(rc.SKUNumGPUs)
-		p.VLLM.ModelRunParams["tensor-parallel-size"] = "1"
-		// In this branch, data-parallel-size is guaranteed to be > 1; disable kv cache CPU offloading
-		// due to conflicts between data parallelism and CPU offloading.
-		p.VLLM.ModelRunParams["kaito-kv-cache-cpu-memory-utilization"] = "0"
-		return
-	}
+// In this branch, data-parallel-size is guaranteed to be > 1; disable kv cache CPU offloading
+// due to conflicts between data parallelism and CPU offloading.
 
-	// Tier 2: Model fits on a single node → Tensor Parallelism.
-	// TP is set to the number of GPUs on the node.
-	p.VLLM.ModelRunParams["tensor-parallel-size"] = strconv.Itoa(rc.SKUNumGPUs)
+// Tier 2: Model fits on a single node → Tensor Parallelism.
+// TP is set to the number of GPUs on the node.
 
-	// Tier 3: Model requires multiple nodes → Pipeline Parallelism + TP.
-	if multiNode {
-		// Disable kv cache CPU offloading when pipeline parallelism is enabled.
-		// TODO: LMCache doesn't support cross-node PP in CPU offload mode.
-		p.VLLM.ModelRunParams["kaito-kv-cache-cpu-memory-utilization"] = "0"
+// Tier 3: Model requires multiple nodes → Pipeline Parallelism + TP.
 
-		// PP is set to the number of nodes.
-		p.VLLM.ModelRunParams["pipeline-parallel-size"] = strconv.Itoa(rc.NumNodes)
+// Disable kv cache CPU offloading when pipeline parallelism is enabled.
+// TODO: LMCache doesn't support cross-node PP in CPU offload mode.
 
-		// Since vllm 0.12.0, we need to set the distributed-executor-backend explicitly.
-		p.VLLM.ModelRunParams["distributed-executor-backend"] = "ray"
-	}
-}
+// PP is set to the number of nodes.
+
+// Since vllm 0.12.0, we need to set the distributed-executor-backend explicitly.
 
 // buildMultiNodeRayCommand constructs the shell command for multi-node inference
 // using a Ray cluster. Pod index 0 is the leader; all other pods are workers.
 func (p *PresetParam) buildMultiNodeRayCommand(rc RuntimeContext) []string {
-	if p.VLLM.RayLeaderParams == nil {
-		p.VLLM.RayLeaderParams = make(map[string]string)
-	}
-	p.VLLM.RayLeaderParams["ray_cluster_size"] = strconv.Itoa(rc.NumNodes)
-	p.VLLM.RayLeaderParams["ray_port"] = strconv.Itoa(PortRayCluster)
-
-	if p.VLLM.RayWorkerParams == nil {
-		p.VLLM.RayWorkerParams = make(map[string]string)
-	}
-	p.VLLM.RayWorkerParams["ray_address"] = utils.GetRayLeaderHost(rc.WorkspaceMetadata)
-	p.VLLM.RayWorkerParams["ray_port"] = strconv.Itoa(PortRayCluster)
-
-	rayLeaderCommand := utils.BuildCmdStr(p.VLLM.RayLeaderBaseCommand, p.VLLM.RayLeaderParams)
-	modelRunCommand := utils.BuildCmdStr(p.VLLM.BaseCommand, p.VLLM.ModelRunParams)
-	result := utils.BuildIfElseCmdStr(
-		`[ "${POD_INDEX}" = "0" ]`,                                      // leader if pod index is 0, otherwise worker
-		strings.Join([]string{rayLeaderCommand, modelRunCommand}, "; "), // leader: start ray head + model
-		map[string]string{},
-		p.VLLM.RayWorkerBaseCommand, // worker: join the cluster
-		p.VLLM.RayWorkerParams,
-	)
-
-	return utils.ShellCmd(result)
+	_ = "STUB: not implemented"
+	return nil
 }
+
+// leader if pod index is 0, otherwise worker
+// leader: start ray head + model
+
+// worker: join the cluster
 
 // getModelFileSize returns the model file size as a resource.Quantity.
 // It tries TotalSafeTensorFileSize first (preset models), then ModelFileSize (best-effort models).
-func (p *PresetParam) getModelFileSize() *resource.Quantity {
-	if p.TotalSafeTensorFileSize != "" {
-		q, err := resource.ParseQuantity(p.TotalSafeTensorFileSize)
-		if err == nil {
-			return &q
-		}
-	}
-	if p.ModelFileSize != "" {
-		q, err := resource.ParseQuantity(p.ModelFileSize)
-		if err == nil {
-			return &q
-		}
-	}
-	return nil
-}
+func (p *PresetParam) getModelFileSize() *resource.Quantity { _ = "STUB: not implemented"; return nil }
 
 // isVLLMHybridKVCacheManagerRequired returns true if the model uses a hybrid
 // architecture (e.g., Mamba/Attention) that requires vLLM's hybrid KV cache manager
 // (https://docs.vllm.ai/en/latest/design/hybrid_kv_cache_manager/)
 func (p *PresetParam) isVLLMHybridKVCacheManagerRequired() bool {
-	for _, arch := range p.Architectures {
-		switch arch {
-		case "NemotronHForCausalLM", "NemotronH_Nano_VL_V2", "NemotronHMTPModel", "NemotronHPuzzleForCausalLM",
-			"Gemma4ForCausalLM", "Gemma4ForConditionalGeneration",
-			"Qwen3_5ForConditionalGeneration":
-			return true
-		}
-	}
+	_ = "STUB: not implemented"
 	return false
 }
 
@@ -528,48 +372,18 @@ func (p *PresetParam) isVLLMHybridKVCacheManagerRequired() bool {
 // 50% of a single GPU's memory, meaning the entire model can be loaded onto
 // one GPU with headroom to spare.
 func (p *PresetParam) modelFitsOnSingleGPU(rc RuntimeContext) bool {
-	if rc.GPUConfig == nil || rc.SKUNumGPUs <= 1 {
-		return false
-	}
-	modelSize := p.getModelFileSize()
-	if modelSize == nil {
-		return false
-	}
-	// Single GPU memory = total GPU memory / number of GPUs.
-	// Condition: modelSize < 0.5 * singleGPUMem
-	// Rearranged to avoid division: modelSize * numGPUs * 2 < totalGPUMem.
-	return modelSize.Value()*int64(rc.SKUNumGPUs)*2 < rc.GPUConfig.GPUMem.Value()
+	_ = "STUB: not implemented"
+	return false
 }
 
-func (p *PresetParam) Validate(rc RuntimeContext) error {
-	var errs []string
-	switch rc.RuntimeName {
-	case RuntimeNameHuggingfaceTransformers:
-		if p.Transformers.BaseCommand == "" {
-			errs = append(errs, fmt.Sprintf("model %s does not support inference with Huggingface Transformers runtime", p.Metadata.Name))
-		}
-	case RuntimeNameVLLM:
-		if rc.AdaptersEnabled && p.VLLM.DisallowLoRA {
-			errs = append(errs, fmt.Sprintf("vLLM does not support LoRA adapters for this model: %s", p.VLLM.ModelName))
-		}
-		if rc.AdapterStrengthEnabled {
-			errs = append(errs, "vLLM does not support adapter strength")
-		}
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf("%s", strings.Join(errs, "; "))
-	}
-	return nil
-}
+// Single GPU memory = total GPU memory / number of GPUs.
+// Condition: modelSize < 0.5 * singleGPUMem
+// Rearranged to avoid division: modelSize * numGPUs * 2 < totalGPUMem.
+
+func (p *PresetParam) Validate(rc RuntimeContext) error { _ = "STUB: not implemented"; return nil }
 
 // Only support Huggingface for now
 func (p *PresetParam) GetTuningCommand(rc RuntimeContext) []string {
-	if p.Transformers.AccelerateParams == nil {
-		p.Transformers.AccelerateParams = make(map[string]string)
-	}
-
-	p.Transformers.AccelerateParams["num_processes"] = strconv.Itoa(rc.SKUNumGPUs)
-	torchCommand := utils.BuildCmdStr(p.Transformers.BaseCommand, p.Transformers.AccelerateParams)
-	modelCommand := utils.BuildCmdStr(DefaultTuningMainFile, p.Transformers.ModelRunParams)
-	return utils.ShellCmd(torchCommand + " " + modelCommand)
+	_ = "STUB: not implemented"
+	return nil
 }

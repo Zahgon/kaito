@@ -14,7 +14,6 @@
 package version
 
 import (
-	"fmt"
 	"runtime"
 )
 
@@ -25,6 +24,4 @@ var (
 	GoVersion = runtime.Version() // Keep as runtime value - this is appropriate
 )
 
-func VersionInfo() string {
-	return fmt.Sprintf("%s (Build Date: %s, Go Version: %s)", Version, BuildDate, GoVersion)
-}
+func VersionInfo() string { _ = "STUB: not implemented"; return "" }

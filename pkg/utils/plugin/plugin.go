@@ -14,7 +14,6 @@
 package plugin
 
 import (
-	"strings"
 	"sync"
 
 	"github.com/kaito-project/kaito/pkg/model"
@@ -73,55 +72,19 @@ var LegacyBuiltinToCatalog = map[string]string{
 }
 
 // Register allows model to be added
-func (reg *ModelRegister) Register(r *Registration) {
-	reg.Lock()
-	defer reg.Unlock()
-	if r.Name == "" {
-		panic("model name is not specified")
-	}
-
-	if reg.models == nil {
-		reg.models = make(map[string]*Registration)
-	}
-
-	reg.models[r.Name] = r
-}
+func (reg *ModelRegister) Register(r *Registration) { _ = "STUB: not implemented"; return }
 
 func (reg *ModelRegister) MustGet(name string) model.Model {
-	reg.Lock()
-	defer reg.Unlock()
-	r, ok := reg.models[name]
-	if !ok {
-		return nil
-	}
-	return r.Instance
+	_ = "STUB: not implemented"
+	return *new(model.Model)
 }
 
-func (reg *ModelRegister) Has(name string) bool {
-	reg.Lock()
-	defer reg.Unlock()
-	_, ok := reg.models[name]
-	return ok
-}
+func (reg *ModelRegister) Has(name string) bool { _ = "STUB: not implemented"; return false }
 
 // IsValidPreset returns true if:
 // 1. the given preset name is registered in the KaitoModelRegister.
 // 2. the given preset name is a legacy builtin preset alias.
 // 3. the given preset name is a valid huggingface model card ID, e.g. "Qwen/Qwen2.5-Coder-7B-Instruct"
-func IsValidPreset(preset string) bool {
-	if KaitoModelRegister.Has(preset) {
-		return true
-	}
-	normalizedPreset := strings.ToLower(preset)
-	if _, ok := LegacyBuiltinToCatalog[normalizedPreset]; ok {
-		return true
-	}
-	// if preset is like "a/b", consider it as a valid HF model ID
-	if strings.Contains(preset, "/") {
-		parts := strings.SplitN(preset, "/", 2)
-		if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
-			return true
-		}
-	}
-	return false
-}
+func IsValidPreset(preset string) bool { _ = "STUB: not implemented"; return false }
+
+// if preset is like "a/b", consider it as a valid HF model ID

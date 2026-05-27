@@ -18,9 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/signal"
 	"strconv"
-	"syscall"
 	"time"
 
 	//+kubebuilder:scaffold:imports
@@ -202,24 +200,11 @@ func main() {
 // withShutdownSignal returns a copy of the parent context that will close if
 // the process receives termination signals.
 func withShutdownSignal(ctx context.Context) context.Context {
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT, os.Interrupt)
-
-	nctx, cancel := context.WithCancel(ctx)
-
-	go func() {
-		<-signalChan
-		klog.Info("received shutdown signal")
-		cancel()
-	}()
-	return nctx
+	_ = "STUB: not implemented"
+	return *new(context.Context)
 }
 
 func setRestConfig(c *rest.Config, kubeClientQPS, kubeClientBurst int) {
-	if kubeClientQPS > 0 {
-		c.QPS = float32(kubeClientQPS)
-	}
-	if kubeClientBurst > 0 {
-		c.Burst = kubeClientBurst
-	}
+	_ = "STUB: not implemented"
+	return
 }

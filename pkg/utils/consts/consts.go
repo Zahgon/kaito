@@ -14,7 +14,6 @@
 package consts
 
 import (
-	"strings"
 	"time"
 )
 
@@ -61,9 +60,7 @@ const (
 var ActiveNodeProvisioner string
 
 // IsKarpenterProvisioner returns true if the active node provisioner is karpenter.
-func IsKarpenterProvisioner() bool {
-	return ActiveNodeProvisioner == NodeProvisionerKarpenter
-}
+func IsKarpenterProvisioner() bool { _ = "STUB: not implemented"; return false }
 
 const (
 	// Nodeclaim related consts
@@ -151,11 +148,6 @@ var (
 )
 
 func NormalizeSupportedNodeImageFamily(value string) (string, bool) {
-	normalized := strings.ToLower(strings.TrimSpace(value))
-	switch normalized {
-	case NodeImageFamilyUbuntu, NodeImageFamilyAzureLinux:
-		return normalized, true
-	default:
-		return "", false
-	}
+	_ = "STUB: not implemented"
+	return "", false
 }

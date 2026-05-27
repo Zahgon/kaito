@@ -14,135 +14,70 @@
 package inference
 
 import (
-	"strings"
-
-	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/klog/v2"
-
 	pkgmodel "github.com/kaito-project/kaito/pkg/model"
 	"github.com/kaito-project/kaito/pkg/sku"
 )
 
 // computeMaxModelLen calculates the optimal max model length for GPU memory efficiency.
 func computeMaxModelLen(preset *pkgmodel.PresetParam, gpu *sku.GPUConfig, numRequiredNodes int) int {
+	_ = "STUB: not implemented"
 	// Validate input parameters
-	if preset == nil || gpu == nil || numRequiredNodes <= 0 {
-		return 0
-	}
-	if preset.ModelTokenLimit <= 0 || preset.BytesPerToken <= 0 || gpu.GPUMem.IsZero() || gpu.GPUCount <= 0 {
-		return 0
-	}
-
-	// Parse model weight size using Kubernetes resource.Quantity
-	weightGiB, ok := parseModelWeight(preset.TotalSafeTensorFileSize)
-	if !ok {
-		return 0
-	}
-
-	// Calculate available GPU memory and adjusted bytes per token
-	availableBytes, adjustedBytesPerToken := calculateMemoryParameters(preset, gpu, numRequiredNodes, weightGiB)
-	if availableBytes <= 0 || adjustedBytesPerToken <= 0 {
-		return 0
-	}
-
-	// Calculate raw token candidate
-	candidate := int(availableBytes / (adjustedBytesPerToken))
-	if candidate <= 0 {
-		return 0
-	}
-
-	// Apply constraints and finalize result
-	finalResult := applyConstraintsAndAlignment(candidate, preset.ModelTokenLimit)
-
-	klog.Infof("computeMaxModelLen: final result=%d", finalResult)
-	return finalResult
+	return 0
 }
+
+// Parse model weight size using Kubernetes resource.Quantity
+
+// Calculate available GPU memory and adjusted bytes per token
+
+// Calculate raw token candidate
+
+// Apply constraints and finalize result
 
 // parseModelWeight parses the model weight string and returns the weight in GiB.
 // It handles Kubernetes resource.Quantity format strings like "25.63Gi", etc.
 func parseModelWeight(totalSafeTensorFileSize string) (float64, bool) {
-	s := strings.TrimSpace(totalSafeTensorFileSize)
-	if s == "" {
-		return 0, false
-	}
-
-	// Use Kubernetes resource.Quantity to parse the size string
-	quantity, err := resource.ParseQuantity(s)
-	if err != nil {
-		return 0, false
-	}
-
-	bytes := quantity.Value()
-	if bytes <= 0 {
-		return 0, false
-	}
-
-	// Convert bytes to GiB (1 GiB = 2^30 bytes)
-	weightGiB := float64(bytes) / (1 << 30)
-	if weightGiB <= 0 {
-		return 0, false
-	}
-
-	return weightGiB, true
+	_ = "STUB: not implemented"
+	return 0, false
 }
+
+// Use Kubernetes resource.Quantity to parse the size string
+
+// Convert bytes to GiB (1 GiB = 2^30 bytes)
 
 // calculateMemoryParameters computes available GPU memory and adjusted bytes per token.
 // Returns the available memory in bytes and the adjusted bytes per token for the calculation.
 func calculateMemoryParameters(preset *pkgmodel.PresetParam, gpu *sku.GPUConfig, numRequiredNodes int, weightGiB float64) (float64, float64) {
-	gpuMemGB := float64(gpu.GPUMem.Value()) / (1 << 30)
-	gpuCount := float64(gpu.GPUCount)
-	nodes := float64(numRequiredNodes)
-	bytesPerToken := float64(preset.BytesPerToken)
-
-	// Calculate available GPU memory using the formula:
-	// availableMemoryGiB = (gpuMemGB * 0.84) / gpuCount - (weightGiB * 1.02) / (nodes * gpuCount) - 2.3
-
-	// Available GPU memory per GPU with 84% utilization factor
-	usableMemoryPerGPU := (gpuMemGB * 0.84) / gpuCount
-
-	// Model weight overhead per GPU with 2% safety margin
-	var modelWeightOverhead float64
-	if preset.DisableTensorParallelism {
-		// Falcon models: don't divide by nodes and gpuCount
-		modelWeightOverhead = weightGiB * 1.02
-	} else {
-		// Other models: distribute weight across nodes and GPUs
-		modelWeightOverhead = (weightGiB * 1.02) / (nodes * gpuCount)
-	}
-
-	// Static overhead for activations and non-torch components
-	// Sum of max activations (1.7 GiB) and max non-torch overhead (0.6 GiB)
-	staticOverhead := 2.3
-
-	availableMemoryGiB := usableMemoryPerGPU - modelWeightOverhead - staticOverhead
-	availableMemoryBytes := availableMemoryGiB * (1 << 30)
-
-	// Calculate adjusted bytes per token for distribution
-	var adjustedBytesPerToken float64
-	if preset.DisableTensorParallelism {
-		// Falcon models: no distribution adjustment
-		adjustedBytesPerToken = bytesPerToken
-	} else {
-		// Other models: distribute across GPUs
-		adjustedBytesPerToken = bytesPerToken / gpuCount * float64(numRequiredNodes)
-	}
-
-	return availableMemoryBytes, adjustedBytesPerToken
+	_ = "STUB: not implemented"
+	return 0, 0
 }
+
+// Calculate available GPU memory using the formula:
+// availableMemoryGiB = (gpuMemGB * 0.84) / gpuCount - (weightGiB * 1.02) / (nodes * gpuCount) - 2.3
+
+// Available GPU memory per GPU with 84% utilization factor
+
+// Model weight overhead per GPU with 2% safety margin
+
+// Falcon models: don't divide by nodes and gpuCount
+
+// Other models: distribute weight across nodes and GPUs
+
+// Static overhead for activations and non-torch components
+// Sum of max activations (1.7 GiB) and max non-torch overhead (0.6 GiB)
+
+// Calculate adjusted bytes per token for distribution
+
+// Falcon models: no distribution adjustment
+
+// Other models: distribute across GPUs
 
 // applyConstraintsAndAlignment applies token limit constraints and 256-token boundary alignment.
 // This ensures the result stays within model limits and is optimally aligned for efficiency.
 func applyConstraintsAndAlignment(candidate, modelTokenLimit int) int {
+	_ = "STUB: not implemented"
 	// Clamp to model's token limit if necessary
-	originalCandidate := candidate
-	if modelTokenLimit > 0 && candidate > modelTokenLimit {
-		candidate = modelTokenLimit
-		klog.Infof("computeMaxModelLen: clamped to ModelTokenLimit: %d -> %d", originalCandidate, candidate)
-	}
-
-	// Align down to 256-token boundary for efficiency
-	// This helps with memory allocation patterns and performance optimization
-	candidate = (candidate / 256) * 256
-
-	return candidate
+	return 0
 }
+
+// Align down to 256-token boundary for efficiency
+// This helps with memory allocation patterns and performance optimization

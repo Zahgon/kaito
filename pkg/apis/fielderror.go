@@ -17,11 +17,6 @@
 // follow-up PR that migrates the validation files themselves.
 package apis
 
-import (
-	"fmt"
-	"strings"
-)
-
 // FieldError represents a validation error for one or more fields. It satisfies
 // the error interface so it can be returned from APIs typed as error.
 type FieldError struct {
@@ -30,31 +25,16 @@ type FieldError struct {
 }
 
 // Error implements the error interface.
-func (fe *FieldError) Error() string {
-	if fe == nil || fe.Message == "" {
-		return ""
-	}
-	if path := strings.Join(fe.Paths, ", "); path != "" {
-		return fmt.Sprintf("%s: %s", fe.Message, path)
-	}
-	return fe.Message
-}
+func (fe *FieldError) Error() string { _ = "STUB: not implemented"; return "" }
 
 // ErrInvalidValue creates a FieldError indicating an invalid value.
 func ErrInvalidValue(value interface{}, field string) *FieldError {
-	return &FieldError{
-		Message: fmt.Sprintf("invalid value: %v", value),
-		Paths:   []string{field},
-	}
+	_ = "STUB: not implemented"
+	return nil
 }
 
 // ErrMissingField creates a FieldError indicating a required field is missing.
-func ErrMissingField(fields ...string) *FieldError {
-	return &FieldError{
-		Message: "missing field(s)",
-		Paths:   fields,
-	}
-}
+func ErrMissingField(fields ...string) *FieldError { _ = "STUB: not implemented"; return nil }
 
 // ConditionType is a type for condition type constants. It mirrors
 // knative.dev/pkg/apis.ConditionType so call sites can be migrated one

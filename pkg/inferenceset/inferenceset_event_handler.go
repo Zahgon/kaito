@@ -25,7 +25,6 @@ import (
 
 	kaitov1beta1 "github.com/kaito-project/kaito/api/v1beta1"
 	"github.com/kaito-project/kaito/pkg/utils"
-	"github.com/kaito-project/kaito/pkg/utils/consts"
 )
 
 type workspaceEventHandler struct {
@@ -37,39 +36,28 @@ type workspaceEventHandler struct {
 var _ handler.TypedEventHandler[client.Object, reconcile.Request] = (*workspaceEventHandler)(nil)
 
 func getControllerKeyForWorkspace(ws *kaitov1beta1.Workspace) *client.ObjectKey {
-	name, ok := ws.Labels[consts.WorkspaceCreatedByInferenceSetLabel]
-	if !ok {
-		return nil
-	}
-	return &client.ObjectKey{Namespace: ws.Namespace, Name: name}
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func (n *workspaceEventHandler) Create(ctx context.Context, evt event.TypedCreateEvent[client.Object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	ws := evt.Object.(*kaitov1beta1.Workspace)
-	if ws.DeletionTimestamp != nil {
-		n.Delete(ctx, event.TypedDeleteEvent[client.Object]{Object: ws}, q)
-		return
-	}
-	if key := getControllerKeyForWorkspace(ws); key != nil {
-		n.expectations.CreationObserved(n.logger, key.String())
-		n.enqueueHandler.Create(ctx, evt, q)
-	}
+	_ = "STUB: not implemented"
+	return
 }
 
 func (n *workspaceEventHandler) Delete(ctx context.Context, evt event.TypedDeleteEvent[client.Object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	ws := evt.Object.(*kaitov1beta1.Workspace)
-	if key := getControllerKeyForWorkspace(ws); key != nil {
-		n.expectations.DeletionObserved(n.logger, key.String())
-	}
-
-	n.enqueueHandler.Delete(ctx, evt, q)
+	_ = "STUB: not implemented"
+	return
 }
 
 func (n *workspaceEventHandler) Generic(ctx context.Context, evt event.TypedGenericEvent[client.Object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	_ = "STUB: not implemented"
+	return
 }
 
 func (n *workspaceEventHandler) Update(ctx context.Context, evt event.TypedUpdateEvent[client.Object], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	n.enqueueHandler.Update(ctx, evt, q)
+	_ = "STUB: not implemented"
+	return
 }
 
 var enqueueInferenceSetForWorkspace = handler.EnqueueRequestsFromMapFunc(

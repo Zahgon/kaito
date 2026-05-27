@@ -18,5 +18,4 @@ import (
 )
 
 // SetDefaults for the Workspace
-func (w *Workspace) SetDefaults(_ context.Context) {
-}
+func (w *Workspace) SetDefaults(_ context.Context) { _ = "STUB: not implemented"; return }

@@ -18,12 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kaito-project/kaito/pkg/nodeprovision"
-	byoprovisioner "github.com/kaito-project/kaito/pkg/nodeprovision/byo-provisioner"
-	gpuprovisioner "github.com/kaito-project/kaito/pkg/nodeprovision/gpu-provisioner"
-	karpenterprov "github.com/kaito-project/kaito/pkg/nodeprovision/karpenter"
-	"github.com/kaito-project/kaito/pkg/utils"
-	"github.com/kaito-project/kaito/pkg/utils/consts"
-	"github.com/kaito-project/kaito/pkg/workspace/resource"
 )
 
 // ProvisionerConfig holds all parameters needed to create a NodeProvisioner.
@@ -45,22 +39,8 @@ type ProvisionerConfig struct {
 //   - byo: BYOProvisioner (all provisioning ops are no-ops).
 //   - azure-gpu-provisioner (default): AzureGPUProvisioner (creates/deletes NodeClaims).
 func NewNodeProvisioner(cfg ProvisionerConfig) nodeprovision.NodeProvisioner {
-	switch cfg.ProvisionerType {
-	case consts.NodeProvisionerKarpenter:
-		ncCfg := karpenterprov.NodeClassConfig{
-			Group:        cfg.NodeClassGroup,
-			Kind:         cfg.NodeClassKind,
-			Version:      cfg.NodeClassVersion,
-			ResourceName: cfg.NodeClassResourceName,
-		}
-		return karpenterprov.NewKarpenterProvisioner(cfg.DirectClient, ncCfg)
-	case consts.NodeProvisionerBYO:
-		return byoprovisioner.NewBYOProvisioner(cfg.KClient)
-	default: // consts.NodeProvisionerAzureGPU
-		expectations := utils.NewControllerExpectations()
-		ncm := resource.NewNodeClaimManager(cfg.KClient, cfg.Recorder, expectations)
-		ncm.SetDefaultNodeImageFamily(cfg.DefaultNodeImageFamily)
-		nm := resource.NewNodeManager(cfg.KClient)
-		return gpuprovisioner.NewAzureGPUProvisioner(ncm, nm)
-	}
+	_ = "STUB: not implemented"
+	return *new(nodeprovision.NodeProvisioner)
 }
+
+// consts.NodeProvisionerAzureGPU

@@ -15,12 +15,9 @@ package resources
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kaitov1beta1 "github.com/kaito-project/kaito/api/v1beta1"
@@ -34,133 +31,40 @@ const (
 
 // GetNode get kubernetes node object with a provided name
 func GetNode(ctx context.Context, nodeName string, kubeClient client.Client) (*corev1.Node, error) {
-	node := &corev1.Node{}
-
-	err := kubeClient.Get(ctx, client.ObjectKey{Name: nodeName}, node, &client.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return node, nil
+	_ = "STUB: not implemented"
+	return nil, nil
 }
 
 // ListNodes get list of kubernetes nodes
 func ListNodes(ctx context.Context, kubeClient client.Client, labelSelector client.MatchingLabels) (*corev1.NodeList, error) {
-	nodeList := &corev1.NodeList{}
-
-	err := kubeClient.List(ctx, nodeList, labelSelector)
-	if err != nil {
-		return nil, err
-	}
-
-	return nodeList, nil
+	_ = "STUB: not implemented"
+	return nil, nil
 }
 
 // UpdateNodeWithLabel update the node object with the label key/value
 func UpdateNodeWithLabel(ctx context.Context, freshNode *corev1.Node, labelKey, labelValue string, kubeClient client.Client) error {
-	klog.InfoS("UpdateNodeWithLabel", "nodeName", freshNode.Name, "labelKey", labelKey, "labelValue", labelValue)
-
-	if nvidiaLabelVal, found := freshNode.Labels[LabelKeyNvidia]; found {
-		if nvidiaLabelVal == LabelValueNvidia {
-			return nil
-		}
-	}
-
-	freshNode.Labels = lo.Assign(freshNode.Labels, map[string]string{labelKey: labelValue})
-	opt := &client.UpdateOptions{}
-
-	err := kubeClient.Update(ctx, freshNode, opt)
-	if err != nil {
-		klog.ErrorS(err, "cannot update node label", "node", freshNode.Name, labelKey, labelValue)
-		return err
-	}
+	_ = "STUB: not implemented"
 	return nil
 }
 
 func CheckNvidiaPlugin(ctx context.Context, nodeObj *corev1.Node) bool {
+	_ = "STUB: not implemented"
 	// check if label accelerator=nvidia exists in the node
-	var foundLabel, foundCapacity bool
-	if nvidiaLabelVal, found := nodeObj.Labels[LabelKeyNvidia]; found {
-		if nvidiaLabelVal == LabelValueNvidia {
-			foundLabel = true
-		}
-	}
-
-	// check Status.Capacity.nvidia.com/gpu has value
-	capacity := nodeObj.Status.Capacity
-	if capacity != nil && !capacity.Name(CapacityNvidiaGPU, "").IsZero() {
-		foundCapacity = true
-	}
-
-	if foundLabel && foundCapacity {
-		return true
-	}
 	return false
 }
 
+// check Status.Capacity.nvidia.com/gpu has value
+
 func ExtractObjFields(obj client.Object) (instanceType, namespace, name string, labelSelector *metav1.LabelSelector,
 	nameLabel, namespaceLabel string, err error) {
-	switch o := obj.(type) {
-	case *kaitov1beta1.Workspace:
-		instanceType = o.Resource.InstanceType
-		namespace = o.Namespace
-		name = o.Name
-		labelSelector = o.Resource.LabelSelector
-		nameLabel = kaitov1beta1.LabelWorkspaceName
-		namespaceLabel = kaitov1beta1.LabelWorkspaceNamespace
-	case *kaitov1beta1.RAGEngine:
-		if o.Spec.Compute != nil {
-			instanceType = o.Spec.Compute.InstanceType
-			labelSelector = o.Spec.Compute.LabelSelector
-		}
-		namespace = o.Namespace
-		name = o.Name
-		nameLabel = kaitov1beta1.LabelRAGEngineName
-		namespaceLabel = kaitov1beta1.LabelRAGEngineNamespace
-	default:
-		err = fmt.Errorf("unsupported object type: %T", obj)
-	}
-	return
+	_ = "STUB: not implemented"
+	return "", "", "", nil, "", "", nil
 }
 
 // GetReadyNodes finds all ready nodes that match the workspace's label selector
 func GetReadyNodes(ctx context.Context, c client.Client, wObj *kaitov1beta1.Workspace) ([]*corev1.Node, error) {
-	matchLabels := client.MatchingLabels(kaitov1beta1.SanitizedMatchLabels(wObj.Resource.LabelSelector))
-
-	nodeList, err := ListNodes(ctx, c, matchLabels)
-	if err != nil {
-		return nil, err
-	}
-
-	readyNodes := make([]*corev1.Node, 0, len(nodeList.Items))
-	for i := range nodeList.Items {
-		node := &nodeList.Items[i]
-
-		if !NodeIsReadyAndNotDeleting(node) {
-			klog.V(4).InfoS("Node is not ready, skipping",
-				"node", node.Name,
-				"workspace", klog.KObj(wObj))
-			continue
-		} else {
-			readyNodes = append(readyNodes, node)
-		}
-
-	}
-
-	klog.V(4).InfoS("Found ready nodes",
-		"workspace", klog.KObj(wObj),
-		"readyNodes", len(readyNodes))
-
-	return readyNodes, nil
+	_ = "STUB: not implemented"
+	return nil, nil
 }
 
-func NodeIsReadyAndNotDeleting(node *corev1.Node) bool {
-	if node.DeletionTimestamp != nil {
-		return false
-	}
-
-	_, statusRunning := lo.Find(node.Status.Conditions, func(condition corev1.NodeCondition) bool {
-		return condition.Type == corev1.NodeReady && condition.Status == corev1.ConditionTrue
-	})
-
-	return statusRunning
-}
+func NodeIsReadyAndNotDeleting(node *corev1.Node) bool { _ = "STUB: not implemented"; return false }

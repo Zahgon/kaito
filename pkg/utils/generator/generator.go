@@ -15,7 +15,6 @@ package generator
 
 import (
 	"context"
-	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -44,11 +43,6 @@ type ManifestType interface {
 type TypedManifestModifier[C GeneratorContext, T ManifestType] func(ctx *C, obj *T) error
 
 func GenerateManifest[C GeneratorContext, T ManifestType](ctx *C, modifiers ...TypedManifestModifier[C, T]) (*T, error) {
-	var manifest T
-	for _, m := range modifiers {
-		if err := m(ctx, &manifest); err != nil {
-			return nil, fmt.Errorf("failed to apply modifier: %w", err)
-		}
-	}
-	return &manifest, nil
+	_ = "STUB: not implemented"
+	return nil, nil
 }

@@ -15,232 +15,62 @@ package v1beta1
 
 import (
 	"context"
-	"fmt"
-	"net/url"
-	"os"
-	"regexp"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2"
 	"knative.dev/pkg/apis"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/kaito-project/kaito/pkg/k8sclient"
-	"github.com/kaito-project/kaito/pkg/sku"
-	"github.com/kaito-project/kaito/pkg/utils"
-	"github.com/kaito-project/kaito/pkg/utils/consts"
 )
 
 func (w *RAGEngine) SupportedVerbs() []admissionregistrationv1.OperationType {
-	return []admissionregistrationv1.OperationType{
-		admissionregistrationv1.Create,
-		admissionregistrationv1.Update,
-	}
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func (w *RAGEngine) Validate(ctx context.Context) (errs *apis.FieldError) {
-	base := apis.GetBaseline(ctx)
-	if base == nil {
-		klog.InfoS("Validate creation", "ragengine", fmt.Sprintf("%s/%s", w.Namespace, w.Name))
-		errs = errs.Also(
-			w.validateCreate().ViaField("spec"),
-			w.validateGuardrails(ctx).ViaField("spec.guardrails"),
-		)
-	} else {
-		klog.InfoS("Validate update", "ragengine", fmt.Sprintf("%s/%s", w.Namespace, w.Name))
-		old := base.(*RAGEngine)
-		errs = errs.Also(
-			w.validateCreate().ViaField("spec"),
-			w.validateGuardrails(ctx).ViaField("spec.guardrails"),
-			w.validateUpdate(old).ViaField("resource"),
-		)
-	}
-	return errs
+	_ = "STUB: not implemented"
+	return nil
 }
 
-func (w *RAGEngine) validateCreate() (errs *apis.FieldError) {
-	if w.Spec.InferenceService != nil {
-		errs = errs.Also(w.Spec.InferenceService.validateCreate())
-	}
-
-	if w.Spec.Embedding == nil {
-		errs = errs.Also(apis.ErrGeneric("Embedding must be specified", ""))
-		return errs
-	}
-	if w.Spec.Embedding.Local == nil && w.Spec.Embedding.Remote == nil {
-		errs = errs.Also(apis.ErrGeneric("Either remote embedding or local embedding must be specified, not neither", ""))
-	}
-	if w.Spec.Embedding.Local != nil && w.Spec.Embedding.Remote != nil {
-		errs = errs.Also(apis.ErrGeneric("Either remote embedding or local embedding must be specified, but not both", ""))
-	}
-
-	if w.Spec.Compute != nil {
-		errs = errs.Also(w.Spec.Compute.validateRAGCreate())
-	}
-
-	if w.Spec.Embedding.Local != nil {
-		errs = errs.Also(w.Spec.Embedding.Local.validateCreate().ViaField("embedding"))
-	}
-	if w.Spec.Embedding.Remote != nil {
-		errs = errs.Also(w.Spec.Embedding.Remote.validateCreate().ViaField("embedding"))
-	}
-
-	return errs
-}
+func (w *RAGEngine) validateCreate() (errs *apis.FieldError) { _ = "STUB: not implemented"; return nil }
 
 func (w *RAGEngine) validateGuardrails(ctx context.Context) (errs *apis.FieldError) {
-	if w.Spec == nil || w.Spec.Guardrails == nil {
-		return nil
-	}
-
-	guardrails := w.Spec.Guardrails
-	if !guardrails.Enabled {
-		return nil
-	}
-	if k8sclient.Client == nil {
-		return apis.ErrGeneric("Failed to obtain client from context.Context")
-	}
-
-	cmName := DefaultGuardrailsPolicyConfigMapName
-	cmNamespace := w.Namespace
-	field := "configMapRef.name"
-	usesDefaultPolicy := true
-	if guardrails.ConfigMapRef != nil && guardrails.ConfigMapRef.Name != "" {
-		usesDefaultPolicy = false
-		cmName = guardrails.ConfigMapRef.Name
-	} else {
-		releaseNamespace, err := utils.GetReleaseNamespace()
-		if err != nil {
-			return apis.ErrGeneric(
-				fmt.Sprintf("guardrails is enabled, but the default policy release namespace could not be determined: %v", err),
-				"enabled",
-			)
-		}
-		cmNamespace = releaseNamespace
-		field = "enabled"
-	}
-
-	var cm corev1.ConfigMap
-	err := k8sclient.Client.Get(ctx, client.ObjectKey{Name: cmName, Namespace: cmNamespace}, &cm)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			if usesDefaultPolicy {
-				return apis.ErrGeneric(
-					fmt.Sprintf("guardrails is enabled, but the default policy ConfigMap %q was not found in release namespace %q; debug with 'kubectl get configmap %s -n %s' or set guardrails.configMapRef.name explicitly", cmName, cmNamespace, cmName, cmNamespace),
-					field,
-				)
-			}
-			return apis.ErrGeneric(
-				fmt.Sprintf("guardrails.configMapRef.name references ConfigMap %q, but it was not found in namespace %q", cmName, cmNamespace),
-				field,
-			)
-		}
-		if usesDefaultPolicy {
-			return apis.ErrGeneric(
-				fmt.Sprintf("guardrails is enabled, but the default policy ConfigMap %q in release namespace %q could not be read: %v; debug with 'kubectl get configmap %s -n %s' or set guardrails.configMapRef.name explicitly", cmName, cmNamespace, err, cmName, cmNamespace),
-				field,
-			)
-		}
-		return apis.ErrGeneric(
-			fmt.Sprintf("failed to get ConfigMap %q referenced by guardrails.configMapRef.name in namespace %q: %v", cmName, cmNamespace, err),
-			field,
-		)
-	}
-
-	return validateGuardrailsPolicyConfigMap(&cm)
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func validateGuardrailsPolicyConfigMap(cm *corev1.ConfigMap) *apis.FieldError {
-	if _, ok := cm.Data[GuardrailsPolicyFileName]; !ok {
-		return apis.ErrMissingField(fmt.Sprintf("%s in ConfigMap", GuardrailsPolicyFileName))
-	}
-
+	_ = "STUB: not implemented"
 	return nil
 }
 
 func (w *RAGEngine) validateUpdate(old *RAGEngine) (errs *apis.FieldError) {
-	if w.Spec.Compute != nil && old.Spec.Compute == nil {
-		errs = errs.Also(apis.ErrGeneric("Compute resources cannot be added after creation", "compute"))
-	}
-	if w.Spec.Compute == nil && old.Spec.Compute != nil {
-		errs = errs.Also(apis.ErrGeneric("Compute resources cannot be removed after creation", "compute"))
-	}
-	if w.Spec.Compute != nil && old.Spec.Compute != nil {
-		errs = errs.Also(w.Spec.Compute.validateUpdate(old.Spec.Compute).ViaField("resource"))
-	}
-	return errs
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func (r *ResourceSpec) validateRAGCreate() (errs *apis.FieldError) {
-	instanceType := string(r.InstanceType)
-
-	skuHandler, err := utils.GetSKUHandler()
-	if err != nil {
-		errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("Failed to get SKU handler: %v", err), "instanceType"))
-		return errs
-	}
-
-	if skuConfig := skuHandler.GetGPUConfigBySKU(instanceType); skuConfig == nil {
-		provider := os.Getenv("CLOUD_PROVIDER")
-		// Check for other instance types pattern matches if cloud provider is Azure
-		if provider != consts.AzureCloudName || !sku.HasSKUNamePrefix(instanceType, N_SERIES_PREFIX, D_SERIES_PREFIX) {
-			errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("Unsupported instance type %s. Supported SKUs: %s", instanceType, skuHandler.GetSupportedSKUs()), "instanceType"))
-		}
-	}
-
-	// Validate labelSelector
-	if _, err := metav1.LabelSelectorAsMap(r.LabelSelector); err != nil {
-		errs = errs.Also(apis.ErrInvalidValue(err.Error(), "labelSelector"))
-	}
-
-	return errs
+	_ = "STUB: not implemented"
+	return nil
 }
+
+// Check for other instance types pattern matches if cloud provider is Azure
+
+// Validate labelSelector
 
 func (e *LocalEmbeddingSpec) validateCreate() (errs *apis.FieldError) {
-	if e.Image == "" && e.ModelID == "" {
-		errs = errs.Also(apis.ErrGeneric("Either image or modelID must be specified, not neither", ""))
-	}
-	if e.Image != "" && e.ModelID != "" {
-		errs = errs.Also(apis.ErrGeneric("Either image or modelID must be specified, but not both", ""))
-	}
-	if e.Image != "" {
-		re := regexp.MustCompile(`^(.+/[^:/]+):([^:/]+)$`)
-		if !re.MatchString(e.Image) {
-			errs = errs.Also(apis.ErrInvalidValue("Invalid image format, require full input image URL", "Image"))
-		} else {
-			// Executes if image is of correct format
-			err := utils.ExtractAndValidateRepoName(e.Image)
-			if err != nil {
-				errs = errs.Also(apis.ErrInvalidValue(err.Error(), "Image"))
-			}
-		}
-	}
-	return errs
+	_ = "STUB: not implemented"
+	return nil
 }
 
+// Executes if image is of correct format
+
 func (e *RemoteEmbeddingSpec) validateCreate() (errs *apis.FieldError) {
-	_, err := url.ParseRequestURI(e.URL)
-	if err != nil {
-		errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("URL input error: %v", err), "remote url"))
-	}
-	return errs
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func (e *InferenceServiceSpec) validateCreate() (errs *apis.FieldError) {
+	_ = "STUB: not implemented"
 	// Only validate URL if it's provided
-	if e.URL != "" {
-		_, err := url.ParseRequestURI(e.URL)
-		if err != nil {
-			errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("URL input error: %v", err), "remote url"))
-		}
-	}
-
-	if e.ContextWindowSize <= 0 {
-		errs = errs.Also(apis.ErrInvalidValue("ContextWindowSize must be a positive integer", "contextWindowSize"))
-	}
-
-	return errs
+	return nil
 }

@@ -14,12 +14,7 @@
 package sku
 
 import (
-	"fmt"
-	"strings"
-
 	"k8s.io/apimachinery/pkg/api/resource"
-
-	"github.com/kaito-project/kaito/pkg/utils/consts"
 )
 
 type CloudSKUHandler interface {
@@ -36,27 +31,14 @@ type GPUConfig struct {
 	CUDAComputeCapability float64 // CUDA compute capability version (e.g., 7.5 for Turing, 8.0 for Ampere)
 }
 
-func (cfg *GPUConfig) String() string {
-	return fmt.Sprintf("SKU: %s, GPUCount: %d, GPUMem: %s, GPUModel: %s, NVMeDiskEnabled: %t, CUDAComputeCapability: %.1f",
-		cfg.SKU, cfg.GPUCount, cfg.GPUMem.String(), cfg.GPUModel, cfg.NVMeDiskEnabled, cfg.CUDAComputeCapability)
-}
+func (cfg *GPUConfig) String() string { _ = "STUB: not implemented"; return "" }
 
 // SupportsBFloat16 returns true if the GPU supports bfloat16 (requires CUDA compute capability >= 8.0).
-func (cfg *GPUConfig) SupportsBFloat16() bool {
-	return cfg.CUDAComputeCapability >= 8.0
-}
+func (cfg *GPUConfig) SupportsBFloat16() bool { _ = "STUB: not implemented"; return false }
 
 func GetCloudSKUHandler(cloud string) CloudSKUHandler {
-	switch cloud {
-	case consts.AzureCloudName:
-		return NewAzureSKUHandler()
-	case consts.AWSCloudName:
-		return NewAwsSKUHandler()
-	case consts.ArcCloudName:
-		return NewArcSKUHandler()
-	default:
-		return nil
-	}
+	_ = "STUB: not implemented"
+	return *new(CloudSKUHandler)
 }
 
 type generalSKUHandler struct {
@@ -64,27 +46,14 @@ type generalSKUHandler struct {
 }
 
 func NewGeneralSKUHandler(supportedSKUs []GPUConfig) CloudSKUHandler {
-	skuMap := make(map[string]GPUConfig)
-	for _, sku := range supportedSKUs {
-		skuMap[sku.SKU] = sku
-	}
-	return &generalSKUHandler{supportedSKUs: skuMap}
+	_ = "STUB: not implemented"
+	return *new(CloudSKUHandler)
 }
 
-func (b *generalSKUHandler) GetSupportedSKUs() []string {
-	keys := make([]string, 0, len(b.supportedSKUs))
-	for k := range b.supportedSKUs {
-		keys = append(keys, k)
-	}
-	return keys
-}
+func (b *generalSKUHandler) GetSupportedSKUs() []string { _ = "STUB: not implemented"; return nil }
 
 func (b *generalSKUHandler) GetGPUConfigBySKU(sku string) *GPUConfig {
-	for _, config := range b.supportedSKUs {
-		if strings.EqualFold(config.SKU, sku) {
-			return &config
-		}
-	}
+	_ = "STUB: not implemented"
 	return nil
 }
 
@@ -92,11 +61,6 @@ func (b *generalSKUHandler) GetGPUConfigBySKU(sku string) *GPUConfig {
 // using case-insensitive comparison. This is useful because Azure VM SKU names are
 // case-insensitive (e.g., "standard_d2s_v6" and "Standard_D2s_v6" refer to the same SKU).
 func HasSKUNamePrefix(skuName string, prefixes ...string) bool {
-	lowerSKU := strings.ToLower(skuName)
-	for _, prefix := range prefixes {
-		if strings.HasPrefix(lowerSKU, strings.ToLower(prefix)) {
-			return true
-		}
-	}
+	_ = "STUB: not implemented"
 	return false
 }

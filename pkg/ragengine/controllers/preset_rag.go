@@ -15,17 +15,12 @@ package controllers
 
 import (
 	"context"
-	"fmt"
-	"os"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kaito-project/kaito/api/v1beta1"
-	"github.com/kaito-project/kaito/pkg/ragengine/manifests"
-	"github.com/kaito-project/kaito/pkg/utils"
 	"github.com/kaito-project/kaito/pkg/utils/consts"
 	"github.com/kaito-project/kaito/pkg/utils/resources"
 )
@@ -84,179 +79,46 @@ type ImageConfig struct {
 	ImageTag     string
 }
 
-func (ic ImageConfig) GetImage() string {
-	return fmt.Sprintf("%s/%s:%s", ic.RegistryName, ic.ImageName, ic.ImageTag)
-}
+func (ic ImageConfig) GetImage() string { _ = "STUB: not implemented"; return "" }
 
-func getImageConfig() ImageConfig {
-	return ImageConfig{
-		RegistryName: getEnv("PRESET_RAG_REGISTRY_NAME", "aimodelsregistrytest.azurecr.io"),
-		ImageName:    getEnv("PRESET_RAG_IMAGE_NAME", "kaito-rag-service"),
-		ImageTag:     getEnv("PRESET_RAG_IMAGE_TAG", "0.3.2"),
-	}
-}
+func getImageConfig() ImageConfig { _ = "STUB: not implemented"; return *new(ImageConfig) }
 
-func getEnv(key, defaultValue string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
-	}
-	return value
-}
+func getEnv(key, defaultValue string) string { _ = "STUB: not implemented"; return "" }
 
 // configStorageVolume creates a volume and volume mount for vector database storage
 func configStorageVolume(storageSpec *v1beta1.StorageSpec) (corev1.Volume, corev1.VolumeMount) {
-	mountPath := "/mnt/data"
-	if storageSpec.PersistentVolume != nil && storageSpec.PersistentVolume.MountPath != "" {
-		mountPath = storageSpec.PersistentVolume.MountPath
-	}
-
-	volumeMount := corev1.VolumeMount{
-		Name:      "vector-db-storage",
-		MountPath: mountPath,
-	}
-
-	var volume corev1.Volume
-	if storageSpec.PersistentVolume != nil && storageSpec.PersistentVolume.PersistentVolumeClaim != "" {
-		// Use PVC for persistent storage
-		volume = corev1.Volume{
-			Name: "vector-db-storage",
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: storageSpec.PersistentVolume.PersistentVolumeClaim,
-				},
-			},
-		}
-	} else {
-		// Use emptyDir as fallback (data will not persist across pod restarts)
-		volume = corev1.Volume{
-			Name: "vector-db-storage",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		}
-	}
-
-	return volume, volumeMount
+	_ = "STUB: not implemented"
+	return *new(corev1.Volume), *new(corev1.VolumeMount)
 }
+
+// Use PVC for persistent storage
+
+// Use emptyDir as fallback (data will not persist across pod restarts)
 
 func configGuardrailsPolicyVolume(cmName string) (corev1.Volume, corev1.VolumeMount) {
-	return corev1.Volume{
-			Name: manifests.GuardrailsPolicyVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cmName,
-					},
-					// The ConfigMap data key and the mounted filename are intentionally the same.
-					Items: []corev1.KeyToPath{
-						{
-							Key:  manifests.GuardrailsPolicyFileName,
-							Path: manifests.GuardrailsPolicyFileName,
-						},
-					},
-				},
-			},
-		}, corev1.VolumeMount{
-			Name:      manifests.GuardrailsPolicyVolumeName,
-			MountPath: manifests.GuardrailsPolicyMountPath,
-			ReadOnly:  true,
-		}
+	_ = "STUB: not implemented"
+	return *new(corev1.Volume), *new(corev1.VolumeMount)
 }
+
+// The ConfigMap data key and the mounted filename are intentionally the same.
 
 func ensureGuardrailsPolicyConfigMap(ctx context.Context, ragEngineObj *v1beta1.RAGEngine, kubeClient client.Client) (*corev1.ConfigMap, error) {
-	if ragEngineObj.Spec == nil || ragEngineObj.Spec.Guardrails == nil || !ragEngineObj.Spec.Guardrails.Enabled {
-		return nil, nil
-	}
-
-	userProvided := client.ObjectKey{Namespace: ragEngineObj.Namespace}
-	userOwned := ragEngineObj.Spec.Guardrails.ConfigMapRef != nil &&
-		ragEngineObj.Spec.Guardrails.ConfigMapRef.Name != ""
-	if userOwned {
-		userProvided.Name = ragEngineObj.Spec.Guardrails.ConfigMapRef.Name
-	}
-
-	cm, err := resources.EnsureConfigOrCopyFromDefault(
-		ctx,
-		kubeClient,
-		userProvided,
-		client.ObjectKey{Name: v1beta1.DefaultGuardrailsPolicyConfigMapName},
-	)
-	if err != nil || cm == nil {
-		return cm, err
-	}
-
-	// User-provided ConfigMaps belong to the user; never patch them.
-	// The copied default ConfigMap is shared namespace-wide, so it must stay
-	// unowned by any individual RAGEngine to avoid breaking other workloads.
-	return cm, nil
+	_ = "STUB: not implemented"
+	return nil, nil
 }
+
+// User-provided ConfigMaps belong to the user; never patch them.
+// The copied default ConfigMap is shared namespace-wide, so it must stay
+// unowned by any individual RAGEngine to avoid breaking other workloads.
 
 func CreatePresetRAG(ctx context.Context, ragEngineObj *v1beta1.RAGEngine, revisionNum string, kubeClient client.Client) (client.Object, error) {
-	var volumes []corev1.Volume
-	var volumeMounts []corev1.VolumeMount
-
-	shmVolume, shmVolumeMount := utils.ConfigSHMVolume()
-	volumes = append(volumes, shmVolume)
-	volumeMounts = append(volumeMounts, shmVolumeMount)
-
-	// Configure storage volume for FAISS vector database persistence
-	if ragEngineObj.Spec.Storage != nil {
-		storageVolume, storageVolumeMount := configStorageVolume(ragEngineObj.Spec.Storage)
-		volumes = append(volumes, storageVolume)
-		volumeMounts = append(volumeMounts, storageVolumeMount)
-	}
-
-	guardrailsConfigMap, err := ensureGuardrailsPolicyConfigMap(ctx, ragEngineObj, kubeClient)
-	if err != nil {
-		return nil, err
-	}
-	if guardrailsConfigMap != nil {
-		guardrailsVolume, guardrailsVolumeMount := configGuardrailsPolicyVolume(guardrailsConfigMap.Name)
-		volumes = append(volumes, guardrailsVolume)
-		volumeMounts = append(volumeMounts, guardrailsVolumeMount)
-	}
-
-	var resourceReq corev1.ResourceRequirements
-
-	if ragEngineObj.Spec.Embedding.Local != nil && ragEngineObj.Spec.Compute != nil && ragEngineObj.Spec.Compute.InstanceType != "" {
-		instanceType := ragEngineObj.Spec.Compute.InstanceType
-		gpuConfig, err := utils.GetGPUConfigBySKU(instanceType)
-		// If GetGPUConfigBySKU returns error, skip GPU resource allocation (e.g., CPU-only instances)
-		if err == nil && gpuConfig != nil {
-			skuNumGPUs := gpuConfig.GPUCount
-
-			resourceReq = corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceName(resources.CapacityNvidiaGPU): *resource.NewQuantity(int64(skuNumGPUs), resource.DecimalSI),
-				},
-				Limits: corev1.ResourceList{
-					corev1.ResourceName(resources.CapacityNvidiaGPU): *resource.NewQuantity(int64(skuNumGPUs), resource.DecimalSI),
-				},
-			}
-		}
-	} else {
-		// If embedding is remote or compute instance type is not specified, do not allocate GPU resources by default
-		// and apply default CPU and memory requests to ensure the pod can be scheduled.
-		resourceReq = corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("500m"),
-				corev1.ResourceMemory: resource.MustParse("512Mi"),
-			},
-		}
-	}
-	commands := utils.ShellCmd("python3 main.py")
-
-	image := getImageConfig().GetImage()
-
-	imagePullSecretRefs := []corev1.LocalObjectReference{}
-
-	depObj := manifests.GenerateRAGDeploymentManifest(ragEngineObj, revisionNum, image, imagePullSecretRefs, commands,
-		containerPorts, livenessProbe, readinessProbe, resourceReq, tolerations, volumes, volumeMounts)
-
-	err = resources.CreateResource(ctx, depObj, kubeClient)
-	if client.IgnoreAlreadyExists(err) != nil {
-		return nil, err
-	}
-	return depObj, nil
+	_ = "STUB: not implemented"
+	return *new(client.Object), nil
 }
+
+// Configure storage volume for FAISS vector database persistence
+
+// If GetGPUConfigBySKU returns error, skip GPU resource allocation (e.g., CPU-only instances)
+
+// If embedding is remote or compute instance type is not specified, do not allocate GPU resources by default
+// and apply default CPU and memory requests to ensure the pod can be scheduled.

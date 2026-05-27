@@ -13,39 +13,9 @@
 
 package utils
 
-import (
-	"strconv"
-	"strings"
-)
-
 // ParseExplicitMaxModelLen scans YAML content for a top-level (under vllm:) 'max-model-len:' value.
 // Returns (value,true) only if an explicit non-empty positive integer is found; otherwise (0,false).
 func ParseExplicitMaxModelLen(content string) (int, bool) {
-	lines := strings.Split(content, "\n")
-	inVLLM := false
-	baseIndent := ""
-	for _, l := range lines {
-		trim := strings.TrimSpace(l)
-		if !inVLLM {
-			if strings.HasPrefix(trim, "vllm:") {
-				inVLLM = true
-				baseIndent = l[:len(l)-len(strings.TrimLeft(l, " \t"))] + "  "
-			}
-			continue
-		}
-		currentIndent := l[:len(l)-len(strings.TrimLeft(l, " \t"))]
-		if trim != "" && !strings.HasPrefix(trim, "#") && len(currentIndent) < len(baseIndent) {
-			break
-		}
-		if strings.HasPrefix(strings.TrimSpace(l), "max-model-len:") {
-			valStr := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(l), "max-model-len:"))
-			if valStr != "" {
-				if v, err := strconv.Atoi(valStr); err == nil && v > 0 {
-					return v, true
-				}
-			}
-			break
-		}
-	}
+	_ = "STUB: not implemented"
 	return 0, false
 }

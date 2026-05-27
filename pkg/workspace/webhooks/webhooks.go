@@ -20,60 +20,30 @@ import (
 	"knative.dev/pkg/configmap"
 	"knative.dev/pkg/controller"
 	knativeinjection "knative.dev/pkg/injection"
-	"knative.dev/pkg/webhook/certificates"
 	"knative.dev/pkg/webhook/resourcesemantics"
-	"knative.dev/pkg/webhook/resourcesemantics/validation"
 
 	kaitov1alpha1 "github.com/kaito-project/kaito/api/v1alpha1"
 	kaitov1beta1 "github.com/kaito-project/kaito/api/v1beta1"
-	"github.com/kaito-project/kaito/pkg/featuregates"
-	"github.com/kaito-project/kaito/pkg/utils/consts"
 )
 
 func NewControllerWebhooks() []knativeinjection.ControllerConstructor {
-	constructor := []knativeinjection.ControllerConstructor{
-		certificates.NewController,
-		NewWorkspaceCRDValidationWebhook,
-	}
-
-	if featuregates.FeatureGates[consts.FeatureFlagEnableInferenceSetController] {
-		constructor = append(constructor, NewInferenceSetCRDValidationWebhook)
-	}
-	if featuregates.FeatureGates[consts.FeatureFlagEnableMultiRoleInferenceController] {
-		constructor = append(constructor, NewMultiRoleInferenceCRDValidationWebhook)
-	}
-
-	return constructor
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func NewWorkspaceCRDValidationWebhook(ctx context.Context, _ configmap.Watcher) *controller.Impl {
-	return validation.NewAdmissionController(ctx,
-		"validation.workspace.kaito.sh",
-		"/validate/workspace.kaito.sh",
-		WorkspaceResources,
-		func(ctx context.Context) context.Context { return ctx },
-		true,
-	)
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func NewInferenceSetCRDValidationWebhook(ctx context.Context, _ configmap.Watcher) *controller.Impl {
-	return validation.NewAdmissionController(ctx,
-		"validation.inferenceset.kaito.sh",
-		"/validate/inferenceset.kaito.sh",
-		InferenceSetResources,
-		func(ctx context.Context) context.Context { return ctx },
-		true,
-	)
+	_ = "STUB: not implemented"
+	return nil
 }
 
 func NewMultiRoleInferenceCRDValidationWebhook(ctx context.Context, _ configmap.Watcher) *controller.Impl {
-	return validation.NewAdmissionController(ctx,
-		"validation.multiroleinference.kaito.sh",
-		"/validate/multiroleinference.kaito.sh",
-		MultiRoleInferenceResources,
-		func(ctx context.Context) context.Context { return ctx },
-		true,
-	)
+	_ = "STUB: not implemented"
+	return nil
 }
 
 var WorkspaceResources = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
